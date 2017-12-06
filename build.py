@@ -83,6 +83,5 @@ if __name__ == "__main__":
         }
         )
     for s in settings_array:
-        o = {"zlib:shared": False}
         builder.add(settings=s, options=o)
     builder.run()
