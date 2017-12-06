@@ -1,4 +1,4 @@
-from conans import ConanFile, CMake
+from conans import ConanFile, CMake, tools
 import os, glob
 
 
@@ -10,41 +10,43 @@ class ZlibConan(ConanFile):
                   "(Also Free, Not to Mention Unencumbered by Patents)"
     url = "https://zlib.net/"
     settings = {"os": ["Windows"], "compiler": ["Visual Studio"], "build_type": None, "arch": ["x86", "x86_64"]}
-    options = {"shared": [True, False]}
-    default_options = "shared=False"
+    options = {"shared": [False], "minizip": [True, False]}
+    default_options = "shared=False", "minizip=True"
     generators = "cmake"
-    exports_sources = "src/*", "FindZLIB.cmake"
+    exports_sources = "src/*", "CMakeLists.patch", "FindZLIB.cmake"
     no_copy_source = True
     build_policy = "missing"
     
     def source(self):
-        # Patch CMakeLists.txt, set PDB output name
-        txt = """
-if(WIN32 AND MSVC)
-    set_target_properties(zlib PROPERTIES PDB_NAME_DEBUG zlibd)
-    set_target_properties(zlibstatic PROPERTIES COMPILE_PDB_NAME_DEBUG zlibstaticd)
-endif()
-"""
-        cmake_script = os.path.join(self.source_folder, "src", "CMakeLists.txt")
-        with open(cmake_script, "a") as fd:
-            fd.write(txt)
+        tools.patch(patch_file="CMakeLists.patch")
 	
     def build(self):
         # Build and install to package folder
         cmake = CMake(self, parallel=True)
         source_dir = os.path.join(self.source_folder, "src")        
-        defs = {"SKIP_INSTALL_FILES:BOOL": "ON"}
+        defs = {
+            "SKIP_INSTALL_FILES:BOOL": True,
+            "ENABLE_MINIZIP:BOOL": self.options.minizip
+        }
         cmake.configure(source_dir=source_dir, defs=defs)
         cmake.build()
         cmake.install()
         # Remove unused files
+        removable = []
         if self.options.shared:
-            pattern = os.path.join(self.package_folder, "lib", "zlibstatic.*")
-            removable = glob.glob(pattern)
-        if not self.options.shared:
-            pattern = os.path.join(self.package_folder, "bin", "*.dll")
-            removable = glob.glob(pattern)
+            pass
+        else:
+            pattern = os.path.join(self.package_folder, "lib", "zlib.lib")
+            removable += glob.glob(pattern)
+            pattern = os.path.join(self.package_folder, "lib", "zlibd.lib")
+            removable += glob.glob(pattern)
+            pattern = os.path.join(self.package_folder, "lib", "minizip.lib")
+            removable += glob.glob(pattern)
+            pattern = os.path.join(self.package_folder, "lib", "minizipd.lib")
+            removable += glob.glob(pattern)
             pattern = os.path.join(self.package_folder, "lib", "*.so*")
+            removable += glob.glob(pattern)
+            pattern = os.path.join(self.package_folder, "bin", "*.dll")
             removable += glob.glob(pattern)
         for fpath in removable:
             self.output.info("Remove %s" % fpath)
@@ -64,17 +66,19 @@ endif()
         #Packing PDB
         if self.settings.os == "Windows" and self.settings.compiler == "Visual Studio":
             if self.options.shared:
-                self.copy("*zlib.pdb", "bin", ".", keep_path=False)
-                self.copy("*zlibd.pdb", "bin", ".", keep_path=False)
+                pass
             else:
                 self.copy("*zlibstatic.pdb", "bin", ".", keep_path=False)
                 self.copy("*zlibstaticd.pdb", "bin", ".", keep_path=False)
+                self.copy("*minizipstatic.pdb", "bin", ".", keep_path=False)
+                self.copy("*minizipstaticd.pdb", "bin", ".", keep_path=False)
 
     def package_info(self):
-        suffix = ".lib"
-        if self.options.shared:
-            self.cpp_info.libs = ["zlib"]
-        else:
-            self.cpp_info.libs = ["zlibstatic"]
+        libs = ["zlib"]
+        if self.options.minizip:
+            libs.append("minizip")
+        if not self.options.shared:
+            libs = [i + "static" for i in libs]
         if self.settings.build_type == "Debug":
-            self.cpp_info.libs[0] += "d"
+            libs = [i + "d" for i in libs]
+        self.cpp_info.libs = libs

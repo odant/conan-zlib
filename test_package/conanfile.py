@@ -3,13 +3,12 @@ from conans import ConanFile, CMake
 
 class ZlibTestConan(ConanFile):
     settings = "os", "compiler", "build_type", "arch"
-    options = {"shared": [True, False]}
-    default_options = "shared=False"
     generators = "cmake"
 
     def build(self):
         cmake = CMake(self, parallel=True)
-        cmake.configure()
+        defs = {"ENABLE_MINIZIP:BOOL": self.options["zlib"].minizip}
+        cmake.configure(defs=defs)
         cmake.build()
 
     def imports(self):

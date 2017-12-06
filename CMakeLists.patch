@@ -1,15 +1,30 @@
---- origin/CMakeLists.txt	2017-12-05 22:54:03.497116919 +0300
-+++ src/CMakeLists.txt	2017-12-06 00:58:45.574908145 +0300
-@@ -247,3 +247,69 @@
-     target_link_libraries(minigzip64 zlib)
-     set_target_properties(minigzip64 PROPERTIES COMPILE_FLAGS "-D_FILE_OFFSET_BITS=64")
+--- src/CMakeLists.txt	2017-12-06 10:39:24.244593600 +0300
++++ src/CMakeLists.txt	2017-12-06 12:17:19.111616800 +0300
+@@ -227,23 +227,69 @@
  endif()
-+
-+#============================================================================
+ 
+ #============================================================================
+-# Example binaries
 +# Conan patch
 +# Dmitriy Vetutnev, ODNAT 2017
-+#============================================================================
-+
+ #============================================================================
+ 
+-add_executable(example test/example.c)
+-target_link_libraries(example zlib)
+-add_test(example example)
+-
+-add_executable(minigzip test/minigzip.c)
+-target_link_libraries(minigzip zlib)
+-
+-if(HAVE_OFF64_T)
+-    add_executable(example64 test/example.c)
+-    target_link_libraries(example64 zlib)
+-    set_target_properties(example64 PROPERTIES COMPILE_FLAGS "-D_FILE_OFFSET_BITS=64")
+-    add_test(example64 example64)
+-
+-    add_executable(minigzip64 test/minigzip.c)
+-    target_link_libraries(minigzip64 zlib)
+-    set_target_properties(minigzip64 PROPERTIES COMPILE_FLAGS "-D_FILE_OFFSET_BITS=64")
 +# Patch PDB names
 +if(WIN32 AND MSVC)
 +    set_target_properties(zlib PROPERTIES PDB_NAME_DEBUG zlibd)
@@ -35,11 +50,13 @@
 +    )
 +    if(WIN32)
 +        list(APPEND MINIZIP_SOURCES ${MINIZIP_DIR}/iowin32.c)
-+        list(APPEND MINIZIP_SOURCES ${MINIZIP_DIR}/iowin32.h)
++        list(APPEND MINIZIP_PUBLIC_HEADERS ${MINIZIP_DIR}/iowin32.h)
 +    endif()
 +
 +    add_library(minizip SHARED ${MINIZIP_SOURCES})
 +    add_library(minizipstatic STATIC ${MINIZIP_SOURCES})
++
++    target_link_libraries(minizip zlib)
 +
 +    if(WIN32 AND MSVC)
 +        set_target_properties(minizip PROPERTIES PDB_NAME_DEBUG minizipd)
@@ -69,4 +86,4 @@
 +    if(NOT SKIP_INSTALL_HEADERS AND NOT SKIP_INSTALL_ALL )
 +        install(FILES ${MINIZIP_PUBLIC_HEADERS} DESTINATION ${INSTALL_INC_DIR}/minizip)
 +    endif()
-+endif()
+ endif()
