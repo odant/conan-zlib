@@ -1,87 +1,40 @@
-import platform
+import platform, os, copy
 from conan.packager import ConanMultiPackager
 
-username = "odant"
-channel = "stable"
-vs_toolset = "v140_xp"
 
+# Common settings
+username = "odant" if "CONAN_USERNAME" not in os.environ else None
+# Windows settings
+visual_versions = ["14", "15"] if "CONAN_VISUAL_VERSIONS" not in os.environ else None
+visual_runtimes = ["MD", "MDd"] if "CONAN_VISUAL_RUNTIMES" not in os.environ else None
+visual_toolsets = {
+    "14": [None, "v140_xp"],
+    "15": [None, "v141_xp"]
+}
+
+def vs_add_toolset(settings, options, env_vars, build_requires, toolsets=visual_toolsets):
+    compiler_toolsets = toolsets.get(settings["compiler.version"])
+    result = []
+    if compiler_toolsets is None:
+        result.append([settings, options, env_vars, build_requires])
+    else:
+        for t in compiler_toolsets:
+            s = copy.deepcopy(settings)
+            s["compiler.toolset"] = t
+            result.append([s, options, env_vars, build_requires])
+    return result
+    
 if __name__ == "__main__":
-    builder = ConanMultiPackager(username=username, channel=channel)
+    builder = ConanMultiPackager(
+        username=username,
+        visual_versions=visual_versions,
+        visual_runtimes=visual_runtimes
+    )
+    builder.add_common_builds()
     if platform.system() == "Windows":
-        settings_array = (
-        {
-            "os": "Windows",
-            "compiler": "Visual Studio",
-            "compiler.version": 14,
-            "compiler.runtime": "MD",
-            "compiler.toolset": vs_toolset,
-            "build_type": "Release",
-            "arch": "x86"
-        },
-        {
-            "os": "Windows",
-            "compiler": "Visual Studio",
-            "compiler.version": 14,
-            "compiler.runtime": "MDd",
-            "compiler.toolset": vs_toolset,
-            "build_type": "Debug",
-            "arch": "x86"
-        },
-        {
-            "os": "Windows",
-            "compiler": "Visual Studio",
-            "compiler.version": 14,
-            "compiler.runtime": "MD",
-            "compiler.toolset": vs_toolset,
-            "build_type": "Release",
-            "arch": "x86_64"
-        },
-        {
-            "os": "Windows",
-            "compiler": "Visual Studio",
-            "compiler.version": 14,
-            "compiler.runtime": "MDd",
-            "compiler.toolset": vs_toolset,
-            "build_type": "Debug",
-            "arch": "x86_64"
-        },
-        {
-            "os": "Windows",
-            "compiler": "Visual Studio",
-            "compiler.version": 15,
-            "compiler.runtime": "MD",
-            "compiler.toolset": vs_toolset,
-            "build_type": "Release",
-            "arch": "x86"
-        },
-        {
-            "os": "Windows",
-            "compiler": "Visual Studio",
-            "compiler.version": 15,
-            "compiler.runtime": "MDd",
-            "compiler.toolset": vs_toolset,
-            "build_type": "Debug",
-            "arch": "x86"
-        },
-        {
-            "os": "Windows",
-            "compiler": "Visual Studio",
-            "compiler.version": 15,
-            "compiler.runtime": "MD",
-            "compiler.toolset": vs_toolset,
-            "build_type": "Release",
-            "arch": "x86_64"
-        },
-        {
-            "os": "Windows",
-            "compiler": "Visual Studio",
-            "compiler.version": 15,
-            "compiler.runtime": "MDd",
-            "compiler.toolset": vs_toolset,
-            "build_type": "Debug",
-            "arch": "x86_64"
-        }
-        )
-    for s in settings_array:
-        builder.add(settings=s, options=o)
+        builds = []
+        for settings, options, env_vars, build_requires in builder.builds:
+            if settings["compiler"] == "Visual Studio":
+                builds += vs_add_toolset(settings, options, env_vars, build_requires)
+        builder.builds = builds
     builder.run()
