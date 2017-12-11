@@ -15,6 +15,8 @@ environment:
       CONAN_VISUAL_VERSIONS: 15
 
 install:
+  - git submodule update --init --recursive
+
   - set PATH=%PYTHON%;%PYTHON%\\Scripts\\;%PATH%
   - pip install conan
   - pip install conan_package_tools
