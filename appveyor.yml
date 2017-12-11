@@ -5,8 +5,6 @@ environment:
   PYTHON_VERSION: 3.6.3
   PYTHON_ARCH: 32
 
-  CONAN_PRINT_RUN_COMMANDS: 1
-  
   CONAN_ARCHS: x86_64
   CONAN_BUILD_TYPES: Debug
   CONAN_VISUAL_RUNTIMES: MDd
@@ -22,7 +20,9 @@ install:
   - set PATH=%PYTHON%;%PYTHON%\\Scripts\\;%PATH%
   - pip install conan
   - pip install conan_package_tools
+
   - conan user
+  - conan config set log.print_run_commands=True
   
 build: false
   
