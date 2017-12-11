@@ -2,6 +2,8 @@ skip_tags: true
 
 environment:
   PYTHON: C:\\Python36
+  PYTHON_VERSION: 3.6.3
+  PYTHON_ARCH: 32
   
   CONAN_ARHCS: x86_64
   CONAN_BUILD_TYPES: Debug
