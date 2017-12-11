@@ -1,6 +1,6 @@
 skip_tags: true
 
-enviroment:
+environment:
   PYTHON: C:\\Python36
   
   CONAN_ARHCS: x86_64
