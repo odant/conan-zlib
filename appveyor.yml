@@ -5,10 +5,15 @@ environment:
   PYTHON_VERSION: 3.6.3
   PYTHON_ARCH: 32
 
+  CONAN_USERNAME: odant
+
   CONAN_ARCHS: x86_64
   CONAN_BUILD_TYPES: Debug
   CONAN_VISUAL_RUNTIMES: MDd
   CONAN_VISUAL_TOOLSETS: v141_xp
+
+  CONAN_UPLOAD: https://api.bintray.com/conan/odant/conan
+  CONAN_STABLE_BRANCH_PATTERN: release/*
   
   matrix:
     - APPVEYOR_BUILD_WORKER_IMAGE: Visual Studio 2017
