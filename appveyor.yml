@@ -18,6 +18,8 @@ install:
   - pip install conan_package_tools
   - conan user
   
+build: false
+  
 test_script:
   - python build.py
 
