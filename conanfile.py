@@ -9,7 +9,7 @@ class ZlibConan(ConanFile):
     description = "A Massively Spiffy Yet Delicately Unobtrusive Compression Library " \
                   "(Also Free, Not to Mention Unencumbered by Patents)"
     url = "https://zlib.net/"
-    settings = {"os": ["Windows"], "compiler": ["Visual Studio"], "build_type": None, "arch": ["x86", "x86_64"]}
+    settings = "os", "compiler", "build_type", "arch"
     options = {"shared": [False], "minizip": [True, False]}
     default_options = "shared=False", "minizip=True"
     generators = "cmake"
@@ -74,11 +74,16 @@ class ZlibConan(ConanFile):
                 self.copy("*minizipstaticd.pdb", "bin", ".", keep_path=False)
 
     def package_info(self):
-        libs = ["zlib"]
-        if self.options.minizip:
-            libs.append("minizip")
-        if not self.options.shared:
-            libs = [i + "static" for i in libs]
-        if self.settings.build_type == "Debug":
-            libs = [i + "d" for i in libs]
+        libs = None
+        if self.settings.os == "Windows":
+            libs = ["zlib"]        
+            if self.options.minizip:
+                libs.append("minizip")
+            if not self.options.shared:
+                libs = [i + "static" for i in libs]
+            if self.settings.build_type == "Debug":
+                libs = [i + "d" for i in libs]
+        else:
+            libs = ["z", "minizip"] if self.options.minizip else ["z"]
         self.cpp_info.libs = libs
+
