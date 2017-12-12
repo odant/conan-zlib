@@ -1,4 +1,4 @@
-project(PackageTest C CXX)
+project(PackageTest C)
 cmake_minimum_required(VERSION 2.8.12)
 
 include(${CMAKE_BINARY_DIR}/conanbuildinfo.cmake)
@@ -22,12 +22,12 @@ add_test(
 )
 
 if(ENABLE_MINIZIP)
-    add_executable(test_minizip test_minizip.cpp)
-    target_link_libraries(test_minizip ZLIB::ZLIB ZLIB::minizip)
+    add_executable(test_minizip_create test_minizip_create.c)
+    target_link_libraries(test_minizip_create ZLIB::ZLIB ZLIB::minizip)
     enable_testing()
     add_test(
-        NAME test_minizip
+        NAME test_minizip_create
         WORKING_DIRECTORY ${CMAKE_BINARY_DIR}/bin
-        COMMAND test_minizip
+        COMMAND test_minizip_create
     )
 endif()
