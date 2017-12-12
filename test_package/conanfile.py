@@ -12,6 +12,7 @@ class ZlibTestConan(ConanFile):
         cmake.build()
 
     def imports(self):
+        self.copy("*.pdb", dst="bin", src="bin")
         self.copy("*.dll", dst="bin", src="bin")
         self.copy("*.dylib*", dst="bin", src="lib")
 
