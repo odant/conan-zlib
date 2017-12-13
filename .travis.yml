@@ -21,14 +21,11 @@ linux: &linux_build
     - docker
 
 install:
-#  - pyenv versions
-#  - pyenv virtualenv 3.6.3 conan_sandbox
   - pyenv local 3.6.3
   - python --version
-  - python3 --version
   - pip install conan
   - pip install conan_package_tools
   - conan user
 
 script:
-  - echo "Script step"
+  - python build.py
