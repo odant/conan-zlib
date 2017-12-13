@@ -26,8 +26,8 @@ install:
   - pyenv local 3.6.3
   - python --version
   - python3 --version
-  - pip3 install conan
-  - pip3 install conan_package_tools
+  - pip install conan
+  - pip install conan_package_tools
   - conan user
 
 script:
