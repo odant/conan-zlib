@@ -36,9 +36,9 @@ matrix:
        CONAN_DOCKER_IMAGE: lasote/conangcc72
 
 install:
-  - pyenv versions
-  - pyenv local 3.6.3
-  - python --version
+#  - pyenv versions
+#  - pyenv local 3.6.3
+#  - python --version
   - pip install conan
   - pip install conan_package_tools
   - conan user
