@@ -14,14 +14,15 @@ linux: &linux_build
   sudo: false
   dist: trusty
   language: python
-  python:
-   - "3.6"
+  python: "3.6"
+  virtualenv:
+    system_site_packages: true
   services:
     - docker
 
 install:
-  - pip install conan
-  - pip install conan_package_tools
+  - pip3 install conan
+  - pip3 install conan_package_tools
   - conan user
 
 script:
