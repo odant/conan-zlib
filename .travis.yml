@@ -21,6 +21,7 @@ linux: &linux_build
     - docker
 
 install:
+  - pyenv versions
   - pyenv local 3.6.3
   - python --version
   - pip install conan
