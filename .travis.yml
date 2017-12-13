@@ -11,10 +11,10 @@ env:
 
 linux: &linux_build
   os: linux
-  sudo: false
   dist: trusty
+  sudo: false
   language: python
-  python: "3.6.3"
+  python: "3.6-dev"
   virtualenv:
     system_site_packages: true
   services:
@@ -23,6 +23,7 @@ linux: &linux_build
 install:
   - python --version
   - python3 --version
+  - pyenv versions
   - pip3 install conan
   - pip3 install conan_package_tools
   - conan user
