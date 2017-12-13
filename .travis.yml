@@ -42,4 +42,4 @@ install:
   - conan user
 
 script:
-  - python build.py
+  - python build.py --env CONAN_PRINT_RUN_COMMANDS=1
