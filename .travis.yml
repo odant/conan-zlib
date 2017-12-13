@@ -18,8 +18,8 @@ linux: &linux_build
   sudo: false
   language: python
   python: "3.6"
-  virtualenv:
-    system_site_packages: true
+#  virtualenv:
+#    system_site_packages: true
   services:
     - docker
 
