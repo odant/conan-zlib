@@ -23,8 +23,8 @@ linux: &linux_build
   python: "3.6"
 #  virtualenv:
 #    system_site_packages: true
-  services:
-    - docker
+#  services:
+#    - docker
 
 matrix:
   include:
