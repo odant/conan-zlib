@@ -20,11 +20,9 @@ linux: &linux_build
   dist: trusty
   sudo: false
   language: python
-  python: "3.6"
-#  virtualenv:
-#    system_site_packages: true
-#  services:
-#    - docker
+  python: 3.6
+  services:
+    - docker
 
 matrix:
   include:
@@ -39,9 +37,6 @@ matrix:
        CONAN_DOCKER_IMAGE: lasote/conangcc72
 
 install:
-#  - pyenv versions
-#  - pyenv local 3.6.3
-#  - python --version
   - pip install conan
   - pip install conan_package_tools
   - conan user
