@@ -14,7 +14,7 @@ linux: &linux_build
   dist: trusty
   sudo: false
   language: python
-  python: "3.6-dev"
+  python: "3.6"
   virtualenv:
     system_site_packages: true
   services:
