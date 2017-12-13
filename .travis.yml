@@ -21,6 +21,8 @@ linux: &linux_build
     - docker
 
 install:
+  - python --version
+  - python3 --version
   - pip3 install conan
   - pip3 install conan_package_tools
   - conan user
