@@ -23,6 +23,7 @@ linux: &linux_build
 install:
 #  - pyenv versions
 #  - pyenv virtualenv 3.6.3 conan_sandbox
+  - pyenv local 3.6.3
   - python --version
   - python3 --version
   - pip3 install conan
