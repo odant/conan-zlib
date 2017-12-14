@@ -26,12 +26,12 @@ matrix:
   include:
     - <<: *linux_build
       env:
-       CONAN_GCC_VERSIONS: 6.3
+       CONAN_GCC_VERSIONS: 6
        CONAN_DOCKER_IMAGE: lasote/conangcc63
 
     - <<: *linux_build
       env:
-       CONAN_GCC_VERSIONS: 7.2
+       CONAN_GCC_VERSIONS: 7
        CONAN_DOCKER_IMAGE: lasote/conangcc72
 
 install:
