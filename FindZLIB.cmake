@@ -61,6 +61,7 @@ if(ZLIB_FOUND)
                 set_target_properties(ZLIB::minizip PROPERTIES
                     INTERFACE_INCLUDE_DIRECTORIES "${MINIZIP_INCLUDE_DIRS}"
                     IMPORTED_LOCATION "${MINIZIP_LIBRARIES}"
+                    INTERFACE_LINK_LIBRARIES "ZLIB::ZLIB"
                 )
             endif()
 
