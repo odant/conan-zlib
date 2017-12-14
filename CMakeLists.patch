@@ -1,6 +1,16 @@
---- src/CMakeLists.txt	2017-12-06 10:39:24.244593600 +0300
-+++ src/CMakeLists.txt	2017-12-06 12:17:19.111616800 +0300
-@@ -227,23 +227,69 @@
+--- src/CMakeLists.txt	2017-12-12 23:37:00.902218446 +0300
++++ src/CMakeLists.txt	2017-12-14 22:48:57.849618233 +0300
+@@ -3,6 +3,9 @@
+ 
+ project(zlib C)
+ 
++include(${CMAKE_BINARY_DIR}/conanbuildinfo.cmake)
++conan_basic_setup()
++
+ set(VERSION "1.2.11")
+ 
+ option(ASM686 "Enable building i686 assembly implementation")
+@@ -227,23 +230,69 @@
  endif()
  
  #============================================================================
@@ -12,25 +22,14 @@
 -add_executable(example test/example.c)
 -target_link_libraries(example zlib)
 -add_test(example example)
--
--add_executable(minigzip test/minigzip.c)
--target_link_libraries(minigzip zlib)
--
--if(HAVE_OFF64_T)
--    add_executable(example64 test/example.c)
--    target_link_libraries(example64 zlib)
--    set_target_properties(example64 PROPERTIES COMPILE_FLAGS "-D_FILE_OFFSET_BITS=64")
--    add_test(example64 example64)
--
--    add_executable(minigzip64 test/minigzip.c)
--    target_link_libraries(minigzip64 zlib)
--    set_target_properties(minigzip64 PROPERTIES COMPILE_FLAGS "-D_FILE_OFFSET_BITS=64")
 +# Patch PDB names
 +if(WIN32 AND MSVC)
 +    set_target_properties(zlib PROPERTIES PDB_NAME_DEBUG zlibd)
 +    set_target_properties(zlibstatic PROPERTIES COMPILE_PDB_NAME_DEBUG zlibstaticd)
 +endif()
-+
+ 
+-add_executable(minigzip test/minigzip.c)
+-target_link_libraries(minigzip zlib)
 +# Add minizip
 +option(ENABLE_MINIZIP "Enable minizip" OFF)
 +if(ENABLE_MINIZIP)
@@ -52,7 +51,16 @@
 +        list(APPEND MINIZIP_SOURCES ${MINIZIP_DIR}/iowin32.c)
 +        list(APPEND MINIZIP_PUBLIC_HEADERS ${MINIZIP_DIR}/iowin32.h)
 +    endif()
-+
+ 
+-if(HAVE_OFF64_T)
+-    add_executable(example64 test/example.c)
+-    target_link_libraries(example64 zlib)
+-    set_target_properties(example64 PROPERTIES COMPILE_FLAGS "-D_FILE_OFFSET_BITS=64")
+-    add_test(example64 example64)
+-
+-    add_executable(minigzip64 test/minigzip.c)
+-    target_link_libraries(minigzip64 zlib)
+-    set_target_properties(minigzip64 PROPERTIES COMPILE_FLAGS "-D_FILE_OFFSET_BITS=64")
 +    add_library(minizip SHARED ${MINIZIP_SOURCES})
 +    add_library(minizipstatic STATIC ${MINIZIP_SOURCES})
 +
