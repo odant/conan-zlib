@@ -35,7 +35,7 @@ if __name__ == "__main__":
         visual_versions=visual_versions,
         visual_runtimes=visual_runtimes
     )
-    builder.add_common_builds()
+    builder.add_common_builds(pure_c=True)
     if platform.system() == "Windows":
         builds = []
         for settings, options, env_vars, build_requires in builder.builds:
