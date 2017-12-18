@@ -10,15 +10,25 @@ class ZlibConan(ConanFile):
                   "(Also Free, Not to Mention Unencumbered by Patents)"
     url = "https://zlib.net/"
     settings = "os", "compiler", "build_type", "arch"
-    options = {"shared": [False], "minizip": [True, False]}
-    default_options = "shared=False", "minizip=True"
+    options = {"shared": [False, True], "minizip": [False, True], "disable_dll_sign": [False, True]}
+    default_options = "shared=False", "minizip=True", "disable_dll_sign=False"
     generators = "cmake"
-    exports_sources = "src/*", "CMakeLists.patch", "FindZLIB.cmake"
+    exports_sources = "src/*", "CMakeLists.patch", "minizip.patch", "FindZLIB.cmake"
     no_copy_source = True
     build_policy = "missing"
     
+    def build_requirements(self):
+        if (
+                self.settings.os == "Windows" and
+                self.settings.build_type == "Release" and
+                self.options.shared and
+                not self.options.disable_dll_sign
+            ):
+                self.build_requires("find_windows_signtool/[>=1.0]@%s/stable" % self.user)
+
     def source(self):
         tools.patch(patch_file="CMakeLists.patch")
+        tools.patch(patch_file="minizip.patch")
 	
     def build(self):
         # Build and install to package folder
@@ -34,7 +44,10 @@ class ZlibConan(ConanFile):
         # Remove unused files
         removable = []
         if self.options.shared:
-            pass
+            pattern = os.path.join(self.package_folder, "lib", "*static*")
+            removable += glob.glob(pattern)
+            pattern = os.path.join(self.package_folder, "lib", "*.a")
+            removable += glob.glob(pattern)
         else:
             pattern = os.path.join(self.package_folder, "lib", "zlib.lib")
             removable += glob.glob(pattern)
@@ -52,14 +65,21 @@ class ZlibConan(ConanFile):
             self.output.info("Remove %s" % fpath)
             os.remove(fpath)
         # Sign DLL
-        if self.settings.os == "Windows" and self.settings.build_type == "Release" and self.options.shared:
-            signtool = '"C:\\Program Files (x86)\\Microsoft SDKs\\Windows\\v7.1A\\bin\\signtool"'
-            params =  "sign /a /t http://timestamp.verisign.com/scripts/timestamp.dll"
-            pattern = os.path.join(self.package_folder, "bin", "*.dll")
-            for fpath in glob.glob(pattern):
-                self.output.info("Sign %s" % fpath)
-                cmd = "{} {} {}".format(signtool, params, fpath)
-                self.run(cmd)
+        if (
+                self.settings.os == "Windows" and
+                self.settings.build_type == "Release" and
+                self.options.shared and
+                not self.options.disable_dll_sign
+            ):
+                with tools.pythonpath(self):
+                    from find_windows_signtool import find_signtool
+                    signtool = '"' + find_signtool(str(self.settings.arch)) + '"'
+                    params =  "sign /a /t http://timestamp.verisign.com/scripts/timestamp.dll"
+                    pattern = os.path.join(self.package_folder, "bin", "*.dll")
+                    for fpath in glob.glob(pattern):
+                        self.output.info("Sign %s" % fpath)
+                        cmd = "{} {} {}".format(signtool, params, fpath)
+                        self.run(cmd)
         
     def package(self):
         self.copy("FindZLIB.cmake", ".", ".")

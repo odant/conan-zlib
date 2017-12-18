@@ -10,7 +10,7 @@
  set(VERSION "1.2.11")
  
  option(ASM686 "Enable building i686 assembly implementation")
-@@ -227,23 +230,69 @@
+@@ -227,23 +230,70 @@
  endif()
  
  #============================================================================
@@ -72,6 +72,7 @@
 +    endif()
 +
 +    set_target_properties(minizip PROPERTIES DEFINE_SYMBOL ZLIB_DLL)
++    target_compile_definitions(minizip PRIVATE -DZLIB_INTERNAL)
 +    set_target_properties(minizip PROPERTIES SOVERSION 1)
 +
 +    if(NOT CYGWIN)

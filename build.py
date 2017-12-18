@@ -13,7 +13,8 @@ visual_default_toolsets = {
 }
 visual_toolsets = None
 if "CONAN_VISUAL_TOOLSETS" in os.environ:
-    visual_toolsets = [s.strip() for s in os.environ["CONAN_VISUAL_TOOLSETS"].split(",")] 
+    visual_toolsets = [s.strip() for s in os.environ["CONAN_VISUAL_TOOLSETS"].split(",")]
+disable_dll_sign = True if "CONAN_DISABLE_DLL_SIGN" in os.environ else False
 
 def vs_get_toolsets(compiler_version):
     return visual_toolsets if not visual_toolsets is None else visual_default_toolsets.get(compiler_version)
@@ -35,12 +36,15 @@ if __name__ == "__main__":
         visual_versions=visual_versions,
         visual_runtimes=visual_runtimes
     )
-    builder.add_common_builds(pure_c=True)
+    builder.add_common_builds(pure_c=True, shared_option_name="zlib:shared")
     if platform.system() == "Windows":
         builds = []
         for settings, options, env_vars, build_requires in builder.builds:
             if settings["compiler"] == "Visual Studio":
                 toolsets = vs_get_toolsets(settings["compiler.version"])
                 builds += vs_add_toolset_to_build(settings, options, env_vars, build_requires, toolsets)
+        if disable_dll_sign:
+            for settings, options, env_vars, build_requires in builds:
+                options["zlib:disable_dll_sign"] = True
         builder.builds = builds
     builder.run()
