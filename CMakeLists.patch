@@ -10,7 +10,7 @@
  set(VERSION "1.2.11")
  
  option(ASM686 "Enable building i686 assembly implementation")
-@@ -227,23 +230,70 @@
+@@ -227,23 +230,75 @@
  endif()
  
  #============================================================================
@@ -65,6 +65,11 @@
 +    add_library(minizipstatic STATIC ${MINIZIP_SOURCES})
 +
 +    target_link_libraries(minizip zlib)
++    set_target_properties(minizip
++        PROPERTIES
++        INSTALL_RPATH "$ORIGIN"
++        BUILD_WITH_INSTALL_RPATH True
++    )
 +
 +    if(WIN32 AND MSVC)
 +        set_target_properties(minizip PROPERTIES PDB_NAME_DEBUG minizipd)

@@ -15,6 +15,11 @@ enable_testing()
 
 add_executable(test_zlib_compress test_zlib_compress)
 target_link_libraries(test_zlib_compress ZLIB::ZLIB)
+set_target_properties(test_zlib_compress
+    PROPERTIES
+    INSTALL_RPATH "$ORIGIN"
+    BUILD_WITH_INSTALL_RPATH True
+)
 add_test(
     NAME test_zlib_compress
     WORKING_DIRECTORY ${CMAKE_BINARY_DIR}/bin
@@ -24,7 +29,11 @@ add_test(
 if(ENABLE_MINIZIP)
     add_executable(test_minizip_create test_minizip_create.c)
     target_link_libraries(test_minizip_create ZLIB::minizip)
-    enable_testing()
+    set_target_properties(test_minizip_create
+        PROPERTIES
+        INSTALL_RPATH "$ORIGIN"
+        BUILD_WITH_INSTALL_RPATH True
+    )
     add_test(
         NAME test_minizip_create
         WORKING_DIRECTORY ${CMAKE_BINARY_DIR}/bin
