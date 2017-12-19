@@ -1,0 +1,148 @@
+diff -Naur src/CMakeLists.txt src/CMakeLists.txt
+--- src/CMakeLists.txt	2017-12-06 10:39:24.244593600 +0300
++++ src/CMakeLists.txt	2017-12-19 18:23:07.151642500 +0300
+@@ -3,6 +3,9 @@
+ 
+ project(zlib C)
+ 
++include(${CMAKE_BINARY_DIR}/conanbuildinfo.cmake)
++conan_basic_setup()
++
+ set(VERSION "1.2.11")
+ 
+ option(ASM686 "Enable building i686 assembly implementation")
+@@ -227,23 +230,76 @@
+ endif()
+ 
+ #============================================================================
+-# Example binaries
++# Conan patch
++# Dmitriy Vetutnev, ODNAT 2017
+ #============================================================================
+ 
+-add_executable(example test/example.c)
+-target_link_libraries(example zlib)
+-add_test(example example)
++# Patch PDB names
++if(WIN32 AND MSVC)
++    set_target_properties(zlib PROPERTIES PDB_NAME_DEBUG zlibd)
++    set_target_properties(zlibstatic PROPERTIES COMPILE_PDB_NAME_DEBUG zlibstaticd)
++endif()
+ 
+-add_executable(minigzip test/minigzip.c)
+-target_link_libraries(minigzip zlib)
++# Add minizip
++option(ENABLE_MINIZIP "Enable minizip" OFF)
++if(ENABLE_MINIZIP)
++    set(MINIZIP_DIR ${CMAKE_CURRENT_SOURCE_DIR}/contrib/minizip)
++    set(MINIZIP_SOURCES
++        ${MINIZIP_DIR}/ioapi.c
++        ${MINIZIP_DIR}/mztools.c
++        ${MINIZIP_DIR}/unzip.c
++        ${MINIZIP_DIR}/zip.c
++    )
++    set(MINIZIP_PUBLIC_HEADERS
++        ${MINIZIP_DIR}/crypt.h
++        ${MINIZIP_DIR}/ioapi.h
++        ${MINIZIP_DIR}/mztools.h
++        ${MINIZIP_DIR}/unzip.h
++        ${MINIZIP_DIR}/zip.h
++    )
++    if(WIN32)
++        list(APPEND MINIZIP_SOURCES ${MINIZIP_DIR}/iowin32.c)
++        list(APPEND MINIZIP_PUBLIC_HEADERS ${MINIZIP_DIR}/iowin32.h)
++    endif()
++    set(MINIZIP_DLL_SOURCES ${MINIZIP_DIR}/minizip1.rc)
+ 
+-if(HAVE_OFF64_T)
+-    add_executable(example64 test/example.c)
+-    target_link_libraries(example64 zlib)
+-    set_target_properties(example64 PROPERTIES COMPILE_FLAGS "-D_FILE_OFFSET_BITS=64")
+-    add_test(example64 example64)
+-
+-    add_executable(minigzip64 test/minigzip.c)
+-    target_link_libraries(minigzip64 zlib)
+-    set_target_properties(minigzip64 PROPERTIES COMPILE_FLAGS "-D_FILE_OFFSET_BITS=64")
++    add_library(minizip SHARED ${MINIZIP_SOURCES} ${MINIZIP_DLL_SOURCES})
++    add_library(minizipstatic STATIC ${MINIZIP_SOURCES})
++
++    target_link_libraries(minizip zlib)
++    set_target_properties(minizip
++        PROPERTIES
++        INSTALL_RPATH "$ORIGIN"
++        BUILD_WITH_INSTALL_RPATH True
++    )
++
++    if(WIN32 AND MSVC)
++        set_target_properties(minizip PROPERTIES PDB_NAME_DEBUG minizipd)
++        set_target_properties(minizipstatic PROPERTIES COMPILE_PDB_NAME_DEBUG minizipstaticd)
++    endif()
++
++    set_target_properties(minizip PROPERTIES DEFINE_SYMBOL ZLIB_DLL)
++    target_compile_definitions(minizip PRIVATE -DZLIB_INTERNAL)
++    set_target_properties(minizip PROPERTIES SOVERSION 1)
++
++    if(NOT CYGWIN)
++        set_target_properties(minizip PROPERTIES VERSION "1.1.0")
++    endif()
++
++    if(UNIX)
++        set_target_properties(minizip minizipstatic PROPERTIES OUTPUT_NAME minizip)
++    elseif(BUILD_SHARED_LIBS AND WIN32)
++        set_target_properties(minizip PROPERTIES SUFFIX "1.dll")
++    endif()
++
++    if(NOT SKIP_INSTALL_LIBRARIES AND NOT SKIP_INSTALL_ALL)
++        install(TARGETS minizip minizipstatic
++            RUNTIME DESTINATION ${INSTALL_BIN_DIR}
++            ARCHIVE DESTINATION ${INSTALL_LIB_DIR}
++            LIBRARY DESTINATION ${INSTALL_LIB_DIR}
++        )
++    endif()
++    if(NOT SKIP_INSTALL_HEADERS AND NOT SKIP_INSTALL_ALL )
++        install(FILES ${MINIZIP_PUBLIC_HEADERS} DESTINATION ${INSTALL_INC_DIR}/minizip)
++    endif()
+ endif()
+diff -Naur src/contrib/minizip/minizip1.rc src/contrib/minizip/minizip1.rc
+--- /dev/null
++++ src/contrib/minizip/minizip1.rc	2017-12-19 18:25:11.902777900 +0300
+@@ -0,0 +1,39 @@
++#include <winver.h>
++
++#ifdef GCC_WINDRES
++VS_VERSION_INFO		VERSIONINFO
++#else
++VS_VERSION_INFO		VERSIONINFO	MOVEABLE IMPURE LOADONCALL DISCARDABLE
++#endif
++  FILEVERSION		1,1,0,0
++  PRODUCTVERSION	1,1,0,0
++  FILEFLAGSMASK		VS_FFI_FILEFLAGSMASK
++#ifdef _DEBUG
++  FILEFLAGS		1
++#else
++  FILEFLAGS		0
++#endif
++  FILEOS		VOS__WINDOWS32
++  FILETYPE		VFT_DLL
++  FILESUBTYPE		0	// not used
++BEGIN
++  BLOCK "StringFileInfo"
++  BEGIN
++    BLOCK "040904E4"
++    //language ID = U.S. English, char set = Windows, Multilingual
++    BEGIN
++      VALUE "FileDescription",  "MiniZip - Zip and UnZip additionnal library for zlib\0"
++      VALUE "FileVersion",      "1.1.0\0"
++      VALUE "InternalName",     "minizip1.dll\0"
++      VALUE "LegalCopyright",	"(C) 1998-2010 Gilles Vollant & Mathias Svensson\0"
++      VALUE "OriginalFilename",	"minizip1.dll\0"
++      VALUE "ProductName",      "minizip\0"
++      VALUE "ProductVersion",	"1.1.0\0"
++      VALUE "Comments",		    "For more information visit http://www.winimage.com/zLibDll/minizip.html/\0"
++    END
++  END
++  BLOCK "VarFileInfo"
++  BEGIN
++    VALUE "Translation", 0x0409, 1252
++  END
++END
