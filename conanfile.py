@@ -99,7 +99,9 @@ class ZlibConan(ConanFile):
             libs = ["zlib"]        
             if self.options.minizip:
                 libs.append("minizip")
-            if not self.options.shared:
+            if self.options.shared:
+                self.cpp_info.defines = ["ZLIB_DLL"]
+            else:
                 libs = [i + "static" for i in libs]
             if self.settings.build_type == "Debug":
                 libs = [i + "d" for i in libs]
