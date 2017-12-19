@@ -13,7 +13,7 @@ class ZlibConan(ConanFile):
     options = {"shared": [False, True], "minizip": [False, True], "disable_dll_sign": [False, True]}
     default_options = "shared=False", "minizip=True", "disable_dll_sign=False"
     generators = "cmake"
-    exports_sources = "src/*", "odant.patch", "minizip.patch", "FindZLIB.cmake"
+    exports_sources = "src/*", "minizip.patch", "FindZLIB.cmake"
     no_copy_source = True
     build_policy = "missing"
     
@@ -27,7 +27,6 @@ class ZlibConan(ConanFile):
                 self.build_requires("find_windows_signtool/[>=1.0]@%s/stable" % self.user)
 
     def source(self):
-        tools.patch(patch_file="odant.patch")
         tools.patch(patch_file="minizip.patch")
 	
     def build(self):
@@ -96,11 +95,9 @@ class ZlibConan(ConanFile):
     def package_info(self):
         libs = None
         if self.settings.os == "Windows":
-            libs = ["zlib"]        
-            if self.options.minizip:
-                libs.append("minizip")
+            libs = ["zlib", "minizip"] if self.options.minizip else ["zlib"]
             if self.options.shared:
-                self.cpp_info.defines = ["ZLIB_DLL"]
+                self.cpp_info.defines = ["ZLIB_DLL", "MINIZIP_DLL"] if self.options.minizip else ["ZLIB_DLL"]
             else:
                 libs = [i + "static" for i in libs]
             if self.settings.build_type == "Debug":

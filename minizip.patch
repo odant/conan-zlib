@@ -1,33 +1,211 @@
+diff -Naur src/CMakeLists.txt src/CMakeLists.txt
+--- src/CMakeLists.txt	2017-12-06 10:39:24.244593600 +0300
++++ src/CMakeLists.txt	2017-12-19 19:46:44.572622600 +0300
+@@ -3,6 +3,9 @@
+ 
+ project(zlib C)
+ 
++include(${CMAKE_BINARY_DIR}/conanbuildinfo.cmake)
++conan_basic_setup()
++
+ set(VERSION "1.2.11")
+ 
+ option(ASM686 "Enable building i686 assembly implementation")
+@@ -227,23 +230,77 @@
+ endif()
+ 
+ #============================================================================
+-# Example binaries
++# Conan patch
++# Dmitriy Vetutnev, ODNAT 2017
+ #============================================================================
+ 
+-add_executable(example test/example.c)
+-target_link_libraries(example zlib)
+-add_test(example example)
++# Patch PDB names
++if(WIN32 AND MSVC)
++    set_target_properties(zlib PROPERTIES PDB_NAME_DEBUG zlibd)
++    set_target_properties(zlibstatic PROPERTIES COMPILE_PDB_NAME_DEBUG zlibstaticd)
++endif()
+ 
+-add_executable(minigzip test/minigzip.c)
+-target_link_libraries(minigzip zlib)
++# Add minizip
++option(ENABLE_MINIZIP "Enable minizip" OFF)
++if(ENABLE_MINIZIP)
++    set(MINIZIP_DIR ${CMAKE_CURRENT_SOURCE_DIR}/contrib/minizip)
++    set(MINIZIP_SOURCES
++        ${MINIZIP_DIR}/ioapi.c
++        ${MINIZIP_DIR}/mztools.c
++        ${MINIZIP_DIR}/unzip.c
++        ${MINIZIP_DIR}/zip.c
++    )
++    set(MINIZIP_PUBLIC_HEADERS
++        ${MINIZIP_DIR}/crypt.h
++        ${MINIZIP_DIR}/ioapi.h
++        ${MINIZIP_DIR}/mztools.h
++        ${MINIZIP_DIR}/unzip.h
++        ${MINIZIP_DIR}/zip.h
++        ${MINIZIP_DIR}/minizip_extern.h
++    )
++    if(WIN32)
++        list(APPEND MINIZIP_SOURCES ${MINIZIP_DIR}/iowin32.c)
++        list(APPEND MINIZIP_PUBLIC_HEADERS ${MINIZIP_DIR}/iowin32.h)
++    endif()
++    set(MINIZIP_DLL_SOURCES ${MINIZIP_DIR}/minizip1.rc)
+ 
+-if(HAVE_OFF64_T)
+-    add_executable(example64 test/example.c)
+-    target_link_libraries(example64 zlib)
+-    set_target_properties(example64 PROPERTIES COMPILE_FLAGS "-D_FILE_OFFSET_BITS=64")
+-    add_test(example64 example64)
+-
+-    add_executable(minigzip64 test/minigzip.c)
+-    target_link_libraries(minigzip64 zlib)
+-    set_target_properties(minigzip64 PROPERTIES COMPILE_FLAGS "-D_FILE_OFFSET_BITS=64")
++    add_library(minizip SHARED ${MINIZIP_SOURCES} ${MINIZIP_DLL_SOURCES})
++    add_library(minizipstatic STATIC ${MINIZIP_SOURCES})
++
++    target_link_libraries(minizip zlib)
++    set_target_properties(minizip
++        PROPERTIES
++        INSTALL_RPATH "$ORIGIN"
++        BUILD_WITH_INSTALL_RPATH True
++    )
++
++    if(WIN32 AND MSVC)
++        set_target_properties(minizip PROPERTIES PDB_NAME_DEBUG minizipd)
++        set_target_properties(minizipstatic PROPERTIES COMPILE_PDB_NAME_DEBUG minizipstaticd)
++    endif()
++
++    set_target_properties(minizip PROPERTIES DEFINE_SYMBOL MINIZIP_DLL)
++    target_compile_definitions(minizip PRIVATE -DMINIZIP_BUILDING -DZLIB_DLL)
++    set_target_properties(minizip PROPERTIES SOVERSION 1)
++
++    if(NOT CYGWIN)
++        set_target_properties(minizip PROPERTIES VERSION "1.1.0")
++    endif()
++
++    if(UNIX)
++        set_target_properties(minizip minizipstatic PROPERTIES OUTPUT_NAME minizip)
++    elseif(BUILD_SHARED_LIBS AND WIN32)
++        set_target_properties(minizip PROPERTIES SUFFIX "1.dll")
++    endif()
++
++    if(NOT SKIP_INSTALL_LIBRARIES AND NOT SKIP_INSTALL_ALL)
++        install(TARGETS minizip minizipstatic
++            RUNTIME DESTINATION ${INSTALL_BIN_DIR}
++            ARCHIVE DESTINATION ${INSTALL_LIB_DIR}
++            LIBRARY DESTINATION ${INSTALL_LIB_DIR}
++        )
++    endif()
++    if(NOT SKIP_INSTALL_HEADERS AND NOT SKIP_INSTALL_ALL )
++        install(FILES ${MINIZIP_PUBLIC_HEADERS} DESTINATION ${INSTALL_INC_DIR}/minizip)
++    endif()
+ endif()
+diff -Naur src/contrib/minizip/minizip_extern.h src/contrib/minizip/minizip_extern.h
+--- /dev/null
++++ src/contrib/minizip/minizip_extern.h	2017-12-19 19:38:28.009220800 +0300
+@@ -0,0 +1,21 @@
++/*
++MiniZip DLL import/export
++Dmitriy Vetutnev, ODANT 2017
++*/
++
++#ifndef MINIZIP_EXTERN_H
++#define MINIZIP_EXTERN_H
++
++#if defined(_WIN32) && defined(MINIZIP_DLL)
++	#if defined(MINIZIP_BUILDING)
++		#define MINIZIP_EXTERN __declspec(dllexport)
++	#else
++		#define MINIZIP_EXTERN __declspec(dllimport)
++	#endif
++#endif
++
++#ifndef MINIZIP_EXTERN
++    #define MINIZIP_EXTERN extern
++#endif
++
++#endif /* MINIZIP_EXTERN_H */
+\ В конце файла нет новой строки
+diff -Naur src/contrib/minizip/minizip1.rc src/contrib/minizip/minizip1.rc
+--- /dev/null
++++ src/contrib/minizip/minizip1.rc	2017-12-19 18:25:11.902777900 +0300
+@@ -0,0 +1,39 @@
++#include <winver.h>
++
++#ifdef GCC_WINDRES
++VS_VERSION_INFO		VERSIONINFO
++#else
++VS_VERSION_INFO		VERSIONINFO	MOVEABLE IMPURE LOADONCALL DISCARDABLE
++#endif
++  FILEVERSION		1,1,0,0
++  PRODUCTVERSION	1,1,0,0
++  FILEFLAGSMASK		VS_FFI_FILEFLAGSMASK
++#ifdef _DEBUG
++  FILEFLAGS		1
++#else
++  FILEFLAGS		0
++#endif
++  FILEOS		VOS__WINDOWS32
++  FILETYPE		VFT_DLL
++  FILESUBTYPE		0	// not used
++BEGIN
++  BLOCK "StringFileInfo"
++  BEGIN
++    BLOCK "040904E4"
++    //language ID = U.S. English, char set = Windows, Multilingual
++    BEGIN
++      VALUE "FileDescription",  "MiniZip - Zip and UnZip additionnal library for zlib\0"
++      VALUE "FileVersion",      "1.1.0\0"
++      VALUE "InternalName",     "minizip1.dll\0"
++      VALUE "LegalCopyright",	"(C) 1998-2010 Gilles Vollant & Mathias Svensson\0"
++      VALUE "OriginalFilename",	"minizip1.dll\0"
++      VALUE "ProductName",      "minizip\0"
++      VALUE "ProductVersion",	"1.1.0\0"
++      VALUE "Comments",		    "For more information visit http://www.winimage.com/zLibDll/minizip.html/\0"
++    END
++  END
++  BLOCK "VarFileInfo"
++  BEGIN
++    VALUE "Translation", 0x0409, 1252
++  END
++END
+diff -Naur src/contrib/minizip/mztools.c src/contrib/minizip/mztools.c
 --- src/contrib/minizip/mztools.c	2017-12-05 11:31:51.911124900 +0300
-+++ src/contrib/minizip/mztools.c	2017-12-18 17:57:49.836059700 +0300
++++ src/contrib/minizip/mztools.c	2017-12-19 19:49:44.131892800 +0300
 @@ -27,7 +27,7 @@
    WRITE_16((unsigned char*)(buff) + 2, (n) >> 16); \
  } while(0)
  
 -extern int ZEXPORT unzRepair(file, fileOut, fileOutTmp, nRecovered, bytesRecovered)
-+ZEXTERN int ZEXPORT unzRepair(file, fileOut, fileOutTmp, nRecovered, bytesRecovered)
++MINIZIP_EXTERN int ZEXPORT unzRepair(file, fileOut, fileOutTmp, nRecovered, bytesRecovered)
  const char* file;
  const char* fileOut;
  const char* fileOutTmp;
+diff -Naur src/contrib/minizip/mztools.h src/contrib/minizip/mztools.h
 --- src/contrib/minizip/mztools.h	2017-12-05 11:31:51.912124900 +0300
-+++ src/contrib/minizip/mztools.h	2017-12-18 17:58:09.556187700 +0300
++++ src/contrib/minizip/mztools.h	2017-12-19 19:41:25.367365100 +0300
 @@ -22,7 +22,7 @@
     fileOut: output file after recovery
     fileOutTmp: temporary file name used for recovery
  */
 -extern int ZEXPORT unzRepair(const char* file,
-+ZEXTERN int ZEXPORT unzRepair(const char* file,
++MINIZIP_EXTERN int ZEXPORT unzRepair(const char* file,
                               const char* fileOut,
                               const char* fileOutTmp,
                               uLong* nRecovered,
+diff -Naur src/contrib/minizip/unzip.c src/contrib/minizip/unzip.c
 --- src/contrib/minizip/unzip.c	2017-12-05 11:31:51.913125000 +0300
-+++ src/contrib/minizip/unzip.c	2017-12-18 18:05:27.169217700 +0300
++++ src/contrib/minizip/unzip.c	2017-12-19 19:53:03.562299600 +0300
 @@ -387,7 +387,7 @@
          (like 1 on Unix, 2 on Windows)
  
  */
 -extern int ZEXPORT unzStringFileNameCompare (const char*  fileName1,
-+ZEXTERN int ZEXPORT unzStringFileNameCompare (const char*  fileName1,
++MINIZIP_EXTERN int ZEXPORT unzStringFileNameCompare (const char*  fileName1,
                                                   const char*  fileName2,
                                                   int iCaseSensitivity)
  
@@ -36,7 +214,7 @@
  
  
 -extern unzFile ZEXPORT unzOpen2 (const char *path,
-+ZEXTERN unzFile ZEXPORT unzOpen2 (const char *path,
++MINIZIP_EXTERN unzFile ZEXPORT unzOpen2 (const char *path,
                                          zlib_filefunc_def* pzlib_filefunc32_def)
  {
      if (pzlib_filefunc32_def != NULL)
@@ -45,7 +223,7 @@
  }
  
 -extern unzFile ZEXPORT unzOpen2_64 (const void *path,
-+ZEXTERN unzFile ZEXPORT unzOpen2_64 (const void *path,
++MINIZIP_EXTERN unzFile ZEXPORT unzOpen2_64 (const void *path,
                                       zlib_filefunc64_def* pzlib_filefunc_def)
  {
      if (pzlib_filefunc_def != NULL)
@@ -54,13 +232,13 @@
  }
  
 -extern unzFile ZEXPORT unzOpen (const char *path)
-+ZEXTERN unzFile ZEXPORT unzOpen (const char *path)
++MINIZIP_EXTERN unzFile ZEXPORT unzOpen (const char *path)
  {
      return unzOpenInternal(path, NULL, 0);
  }
  
 -extern unzFile ZEXPORT unzOpen64 (const void *path)
-+ZEXTERN unzFile ZEXPORT unzOpen64 (const void *path)
++MINIZIP_EXTERN unzFile ZEXPORT unzOpen64 (const void *path)
  {
      return unzOpenInternal(path, NULL, 1);
  }
@@ -69,7 +247,7 @@
      these files MUST be closed with unzCloseCurrentFile before call unzClose.
    return UNZ_OK if there is no problem. */
 -extern int ZEXPORT unzClose (unzFile file)
-+ZEXTERN int ZEXPORT unzClose (unzFile file)
++MINIZIP_EXTERN int ZEXPORT unzClose (unzFile file)
  {
      unz64_s* s;
      if (file==NULL)
@@ -78,7 +256,7 @@
    No preparation of the structure is needed
    return UNZ_OK if there is no problem. */
 -extern int ZEXPORT unzGetGlobalInfo64 (unzFile file, unz_global_info64* pglobal_info)
-+ZEXTERN int ZEXPORT unzGetGlobalInfo64 (unzFile file, unz_global_info64* pglobal_info)
++MINIZIP_EXTERN int ZEXPORT unzGetGlobalInfo64 (unzFile file, unz_global_info64* pglobal_info)
  {
      unz64_s* s;
      if (file==NULL)
@@ -87,7 +265,7 @@
  }
  
 -extern int ZEXPORT unzGetGlobalInfo (unzFile file, unz_global_info* pglobal_info32)
-+ZEXTERN int ZEXPORT unzGetGlobalInfo (unzFile file, unz_global_info* pglobal_info32)
++MINIZIP_EXTERN int ZEXPORT unzGetGlobalInfo (unzFile file, unz_global_info* pglobal_info32)
  {
      unz64_s* s;
      if (file==NULL)
@@ -96,7 +274,7 @@
    return UNZ_OK if there is no problem.
  */
 -extern int ZEXPORT unzGetCurrentFileInfo64 (unzFile file,
-+ZEXTERN int ZEXPORT unzGetCurrentFileInfo64 (unzFile file,
++MINIZIP_EXTERN int ZEXPORT unzGetCurrentFileInfo64 (unzFile file,
                                            unz_file_info64 * pfile_info,
                                            char * szFileName, uLong fileNameBufferSize,
                                            void *extraField, uLong extraFieldBufferSize,
@@ -105,7 +283,7 @@
  }
  
 -extern int ZEXPORT unzGetCurrentFileInfo (unzFile file,
-+ZEXTERN int ZEXPORT unzGetCurrentFileInfo (unzFile file,
++MINIZIP_EXTERN int ZEXPORT unzGetCurrentFileInfo (unzFile file,
                                            unz_file_info * pfile_info,
                                            char * szFileName, uLong fileNameBufferSize,
                                            void *extraField, uLong extraFieldBufferSize,
@@ -114,7 +292,7 @@
    return UNZ_OK if there is no problem
  */
 -extern int ZEXPORT unzGoToFirstFile (unzFile file)
-+ZEXTERN int ZEXPORT unzGoToFirstFile (unzFile file)
++MINIZIP_EXTERN int ZEXPORT unzGoToFirstFile (unzFile file)
  {
      int err=UNZ_OK;
      unz64_s* s;
@@ -123,7 +301,7 @@
    return UNZ_END_OF_LIST_OF_FILE if the actual file was the latest.
  */
 -extern int ZEXPORT unzGoToNextFile (unzFile  file)
-+ZEXTERN int ZEXPORT unzGoToNextFile (unzFile  file)
++MINIZIP_EXTERN int ZEXPORT unzGoToNextFile (unzFile  file)
  {
      unz64_s* s;
      int err;
@@ -132,7 +310,7 @@
    UNZ_END_OF_LIST_OF_FILE if the file is not found
  */
 -extern int ZEXPORT unzLocateFile (unzFile file, const char *szFileName, int iCaseSensitivity)
-+ZEXTERN int ZEXPORT unzLocateFile (unzFile file, const char *szFileName, int iCaseSensitivity)
++MINIZIP_EXTERN int ZEXPORT unzLocateFile (unzFile file, const char *szFileName, int iCaseSensitivity)
  {
      unz64_s* s;
      int err;
@@ -141,7 +319,7 @@
  */
  
 -extern int ZEXPORT unzGetFilePos64(unzFile file, unz64_file_pos*  file_pos)
-+ZEXTERN int ZEXPORT unzGetFilePos64(unzFile file, unz64_file_pos*  file_pos)
++MINIZIP_EXTERN int ZEXPORT unzGetFilePos64(unzFile file, unz64_file_pos*  file_pos)
  {
      unz64_s* s;
  
@@ -150,7 +328,7 @@
  }
  
 -extern int ZEXPORT unzGetFilePos(
-+ZEXTERN int ZEXPORT unzGetFilePos(
++MINIZIP_EXTERN int ZEXPORT unzGetFilePos(
      unzFile file,
      unz_file_pos* file_pos)
  {
@@ -159,7 +337,7 @@
  }
  
 -extern int ZEXPORT unzGoToFilePos64(unzFile file, const unz64_file_pos* file_pos)
-+ZEXTERN int ZEXPORT unzGoToFilePos64(unzFile file, const unz64_file_pos* file_pos)
++MINIZIP_EXTERN int ZEXPORT unzGoToFilePos64(unzFile file, const unz64_file_pos* file_pos)
  {
      unz64_s* s;
      int err;
@@ -168,7 +346,7 @@
  }
  
 -extern int ZEXPORT unzGoToFilePos(
-+ZEXTERN int ZEXPORT unzGoToFilePos(
++MINIZIP_EXTERN int ZEXPORT unzGoToFilePos(
      unzFile file,
      unz_file_pos* file_pos)
  {
@@ -177,7 +355,7 @@
    If there is no error and the file is opened, the return value is UNZ_OK.
  */
 -extern int ZEXPORT unzOpenCurrentFile3 (unzFile file, int* method,
-+ZEXTERN int ZEXPORT unzOpenCurrentFile3 (unzFile file, int* method,
++MINIZIP_EXTERN int ZEXPORT unzOpenCurrentFile3 (unzFile file, int* method,
                                              int* level, int raw, const char* password)
  {
      int err=UNZ_OK;
@@ -186,19 +364,19 @@
  }
  
 -extern int ZEXPORT unzOpenCurrentFile (unzFile file)
-+ZEXTERN int ZEXPORT unzOpenCurrentFile (unzFile file)
++MINIZIP_EXTERN int ZEXPORT unzOpenCurrentFile (unzFile file)
  {
      return unzOpenCurrentFile3(file, NULL, NULL, 0, NULL);
  }
  
 -extern int ZEXPORT unzOpenCurrentFilePassword (unzFile file, const char*  password)
-+ZEXTERN int ZEXPORT unzOpenCurrentFilePassword (unzFile file, const char*  password)
++MINIZIP_EXTERN int ZEXPORT unzOpenCurrentFilePassword (unzFile file, const char*  password)
  {
      return unzOpenCurrentFile3(file, NULL, NULL, 0, password);
  }
  
 -extern int ZEXPORT unzOpenCurrentFile2 (unzFile file, int* method, int* level, int raw)
-+ZEXTERN int ZEXPORT unzOpenCurrentFile2 (unzFile file, int* method, int* level, int raw)
++MINIZIP_EXTERN int ZEXPORT unzOpenCurrentFile2 (unzFile file, int* method, int* level, int raw)
  {
      return unzOpenCurrentFile3(file, method, level, raw, NULL);
  }
@@ -206,7 +384,7 @@
  /** Addition for GDAL : START */
  
 -extern ZPOS64_T ZEXPORT unzGetCurrentFileZStreamPos64( unzFile file)
-+ZEXTERN ZPOS64_T ZEXPORT unzGetCurrentFileZStreamPos64( unzFile file)
++MINIZIP_EXTERN ZPOS64_T ZEXPORT unzGetCurrentFileZStreamPos64( unzFile file)
  {
      unz64_s* s;
      file_in_zip64_read_info_s* pfile_in_zip_read_info;
@@ -215,7 +393,7 @@
      (UNZ_ERRNO for IO error, or zLib error for uncompress error)
  */
 -extern int ZEXPORT unzReadCurrentFile  (unzFile file, voidp buf, unsigned len)
-+ZEXTERN int ZEXPORT unzReadCurrentFile  (unzFile file, voidp buf, unsigned len)
++MINIZIP_EXTERN int ZEXPORT unzReadCurrentFile  (unzFile file, voidp buf, unsigned len)
  {
      int err=UNZ_OK;
      uInt iRead = 0;
@@ -224,7 +402,7 @@
    Give the current position in uncompressed data
  */
 -extern z_off_t ZEXPORT unztell (unzFile file)
-+ZEXTERN z_off_t ZEXPORT unztell (unzFile file)
++MINIZIP_EXTERN z_off_t ZEXPORT unztell (unzFile file)
  {
      unz64_s* s;
      file_in_zip64_read_info_s* pfile_in_zip_read_info;
@@ -233,7 +411,7 @@
  }
  
 -extern ZPOS64_T ZEXPORT unztell64 (unzFile file)
-+ZEXTERN ZPOS64_T ZEXPORT unztell64 (unzFile file)
++MINIZIP_EXTERN ZPOS64_T ZEXPORT unztell64 (unzFile file)
  {
  
      unz64_s* s;
@@ -242,7 +420,7 @@
    return 1 if the end of file was reached, 0 elsewhere
  */
 -extern int ZEXPORT unzeof (unzFile file)
-+ZEXTERN int ZEXPORT unzeof (unzFile file)
++MINIZIP_EXTERN int ZEXPORT unzeof (unzFile file)
  {
      unz64_s* s;
      file_in_zip64_read_info_s* pfile_in_zip_read_info;
@@ -251,7 +429,7 @@
      the error code
  */
 -extern int ZEXPORT unzGetLocalExtrafield (unzFile file, voidp buf, unsigned len)
-+ZEXTERN int ZEXPORT unzGetLocalExtrafield (unzFile file, voidp buf, unsigned len)
++MINIZIP_EXTERN int ZEXPORT unzGetLocalExtrafield (unzFile file, voidp buf, unsigned len)
  {
      unz64_s* s;
      file_in_zip64_read_info_s* pfile_in_zip_read_info;
@@ -260,7 +438,7 @@
    Return UNZ_CRCERROR if all the file was read but the CRC is not good
  */
 -extern int ZEXPORT unzCloseCurrentFile (unzFile file)
-+ZEXTERN int ZEXPORT unzCloseCurrentFile (unzFile file)
++MINIZIP_EXTERN int ZEXPORT unzCloseCurrentFile (unzFile file)
  {
      int err=UNZ_OK;
  
@@ -269,7 +447,7 @@
    return the number of byte copied or an error code <0
  */
 -extern int ZEXPORT unzGetGlobalComment (unzFile file, char * szComment, uLong uSizeBuf)
-+ZEXTERN int ZEXPORT unzGetGlobalComment (unzFile file, char * szComment, uLong uSizeBuf)
++MINIZIP_EXTERN int ZEXPORT unzGetGlobalComment (unzFile file, char * szComment, uLong uSizeBuf)
  {
      unz64_s* s;
      uLong uReadThis ;
@@ -278,7 +456,7 @@
  
  /* Additions by RX '2004 */
 -extern ZPOS64_T ZEXPORT unzGetOffset64(unzFile file)
-+ZEXTERN ZPOS64_T ZEXPORT unzGetOffset64(unzFile file)
++MINIZIP_EXTERN ZPOS64_T ZEXPORT unzGetOffset64(unzFile file)
  {
      unz64_s* s;
  
@@ -287,7 +465,7 @@
  }
  
 -extern uLong ZEXPORT unzGetOffset (unzFile file)
-+ZEXTERN uLong ZEXPORT unzGetOffset (unzFile file)
++MINIZIP_EXTERN uLong ZEXPORT unzGetOffset (unzFile file)
  {
      ZPOS64_T offset64;
  
@@ -296,7 +474,7 @@
  }
  
 -extern int ZEXPORT unzSetOffset64(unzFile file, ZPOS64_T pos)
-+ZEXTERN int ZEXPORT unzSetOffset64(unzFile file, ZPOS64_T pos)
++MINIZIP_EXTERN int ZEXPORT unzSetOffset64(unzFile file, ZPOS64_T pos)
  {
      unz64_s* s;
      int err;
@@ -305,38 +483,48 @@
  }
  
 -extern int ZEXPORT unzSetOffset (unzFile file, uLong pos)
-+ZEXTERN int ZEXPORT unzSetOffset (unzFile file, uLong pos)
++MINIZIP_EXTERN int ZEXPORT unzSetOffset (unzFile file, uLong pos)
  {
      return unzSetOffset64(file,pos);
  }
+diff -Naur src/contrib/minizip/unzip.h src/contrib/minizip/unzip.h
 --- src/contrib/minizip/unzip.h	2017-12-05 11:31:51.913125000 +0300
-+++ src/contrib/minizip/unzip.h	2017-12-18 18:16:26.973956400 +0300
-@@ -150,7 +150,7 @@
++++ src/contrib/minizip/unzip.h	2017-12-19 19:49:21.723611100 +0300
+@@ -61,6 +61,8 @@
+ 
+ #define Z_BZIP2ED 12
+ 
++#include "minizip_extern.h"
++
+ #if defined(STRICTUNZIP) || defined(STRICTZIPUNZIP)
+ /* like the STRICT of WIN32, we define a pointer that cannot be converted
+     from (void*) without cast */
+@@ -150,7 +152,7 @@
      tm_unz tmu_date;
  } unz_file_info;
  
 -extern int ZEXPORT unzStringFileNameCompare OF ((const char* fileName1,
-+ZEXTERN int ZEXPORT unzStringFileNameCompare OF ((const char* fileName1,
++MINIZIP_EXTERN int ZEXPORT unzStringFileNameCompare OF ((const char* fileName1,
                                                   const char* fileName2,
                                                   int iCaseSensitivity));
  /*
-@@ -163,8 +163,8 @@
+@@ -163,8 +165,8 @@
  */
  
  
 -extern unzFile ZEXPORT unzOpen OF((const char *path));
 -extern unzFile ZEXPORT unzOpen64 OF((const void *path));
-+ZEXTERN unzFile ZEXPORT unzOpen OF((const char *path));
-+ZEXTERN unzFile ZEXPORT unzOpen64 OF((const void *path));
++MINIZIP_EXTERN unzFile ZEXPORT unzOpen OF((const char *path));
++MINIZIP_EXTERN unzFile ZEXPORT unzOpen64 OF((const void *path));
  /*
    Open a Zip file. path contain the full pathname (by example,
       on a Windows XP computer "c:\\zlib\\zlib113.zip" or on an Unix computer
-@@ -181,31 +181,31 @@
+@@ -181,31 +183,31 @@
  */
  
  
 -extern unzFile ZEXPORT unzOpen2 OF((const char *path,
-+ZEXTERN unzFile ZEXPORT unzOpen2 OF((const char *path,
++MINIZIP_EXTERN unzFile ZEXPORT unzOpen2 OF((const char *path,
                                      zlib_filefunc_def* pzlib_filefunc_def));
  /*
     Open a Zip file, like unzOpen, but provide a set of file low level API
@@ -344,7 +532,7 @@
  */
  
 -extern unzFile ZEXPORT unzOpen2_64 OF((const void *path,
-+ZEXTERN unzFile ZEXPORT unzOpen2_64 OF((const void *path,
++MINIZIP_EXTERN unzFile ZEXPORT unzOpen2_64 OF((const void *path,
                                      zlib_filefunc64_def* pzlib_filefunc_def));
  /*
     Open a Zip file, like unz64Open, but provide a set of file low level API
@@ -352,7 +540,7 @@
  */
  
 -extern int ZEXPORT unzClose OF((unzFile file));
-+ZEXTERN int ZEXPORT unzClose OF((unzFile file));
++MINIZIP_EXTERN int ZEXPORT unzClose OF((unzFile file));
  /*
    Close a ZipFile opened with unzOpen.
    If there is files inside the .Zip opened with unzOpenCurrentFile (see later),
@@ -360,36 +548,36 @@
    return UNZ_OK if there is no problem. */
  
 -extern int ZEXPORT unzGetGlobalInfo OF((unzFile file,
-+ZEXTERN int ZEXPORT unzGetGlobalInfo OF((unzFile file,
++MINIZIP_EXTERN int ZEXPORT unzGetGlobalInfo OF((unzFile file,
                                          unz_global_info *pglobal_info));
  
 -extern int ZEXPORT unzGetGlobalInfo64 OF((unzFile file,
-+ZEXTERN int ZEXPORT unzGetGlobalInfo64 OF((unzFile file,
++MINIZIP_EXTERN int ZEXPORT unzGetGlobalInfo64 OF((unzFile file,
                                          unz_global_info64 *pglobal_info));
  /*
    Write info about the ZipFile in the *pglobal_info structure.
-@@ -213,7 +213,7 @@
+@@ -213,7 +215,7 @@
    return UNZ_OK if there is no problem. */
  
  
 -extern int ZEXPORT unzGetGlobalComment OF((unzFile file,
-+ZEXTERN int ZEXPORT unzGetGlobalComment OF((unzFile file,
++MINIZIP_EXTERN int ZEXPORT unzGetGlobalComment OF((unzFile file,
                                             char *szComment,
                                             uLong uSizeBuf));
  /*
-@@ -226,20 +226,20 @@
+@@ -226,20 +228,20 @@
  /***************************************************************************/
  /* Unzip package allow you browse the directory of the zipfile */
  
 -extern int ZEXPORT unzGoToFirstFile OF((unzFile file));
-+ZEXTERN int ZEXPORT unzGoToFirstFile OF((unzFile file));
++MINIZIP_EXTERN int ZEXPORT unzGoToFirstFile OF((unzFile file));
  /*
    Set the current file of the zipfile to the first file.
    return UNZ_OK if there is no problem
  */
  
 -extern int ZEXPORT unzGoToNextFile OF((unzFile file));
-+ZEXTERN int ZEXPORT unzGoToNextFile OF((unzFile file));
++MINIZIP_EXTERN int ZEXPORT unzGoToNextFile OF((unzFile file));
  /*
    Set the current file of the zipfile to the next file.
    return UNZ_OK if there is no problem
@@ -397,162 +585,163 @@
  */
  
 -extern int ZEXPORT unzLocateFile OF((unzFile file,
-+ZEXTERN int ZEXPORT unzLocateFile OF((unzFile file,
++MINIZIP_EXTERN int ZEXPORT unzLocateFile OF((unzFile file,
                       const char *szFileName,
                       int iCaseSensitivity));
  /*
-@@ -261,11 +261,11 @@
+@@ -261,11 +263,11 @@
      uLong num_of_file;            /* # of file */
  } unz_file_pos;
  
 -extern int ZEXPORT unzGetFilePos(
-+ZEXTERN int ZEXPORT unzGetFilePos(
++MINIZIP_EXTERN int ZEXPORT unzGetFilePos(
      unzFile file,
      unz_file_pos* file_pos);
  
 -extern int ZEXPORT unzGoToFilePos(
-+ZEXTERN int ZEXPORT unzGoToFilePos(
++MINIZIP_EXTERN int ZEXPORT unzGoToFilePos(
      unzFile file,
      unz_file_pos* file_pos);
  
-@@ -275,17 +275,17 @@
+@@ -275,17 +277,17 @@
      ZPOS64_T num_of_file;            /* # of file */
  } unz64_file_pos;
  
 -extern int ZEXPORT unzGetFilePos64(
-+ZEXTERN int ZEXPORT unzGetFilePos64(
++MINIZIP_EXTERN int ZEXPORT unzGetFilePos64(
      unzFile file,
      unz64_file_pos* file_pos);
  
 -extern int ZEXPORT unzGoToFilePos64(
-+ZEXTERN int ZEXPORT unzGoToFilePos64(
++MINIZIP_EXTERN int ZEXPORT unzGoToFilePos64(
      unzFile file,
      const unz64_file_pos* file_pos);
  
  /* ****************************************** */
  
 -extern int ZEXPORT unzGetCurrentFileInfo64 OF((unzFile file,
-+ZEXTERN int ZEXPORT unzGetCurrentFileInfo64 OF((unzFile file,
++MINIZIP_EXTERN int ZEXPORT unzGetCurrentFileInfo64 OF((unzFile file,
                           unz_file_info64 *pfile_info,
                           char *szFileName,
                           uLong fileNameBufferSize,
-@@ -294,7 +294,7 @@
+@@ -294,7 +296,7 @@
                           char *szComment,
                           uLong commentBufferSize));
  
 -extern int ZEXPORT unzGetCurrentFileInfo OF((unzFile file,
-+ZEXTERN int ZEXPORT unzGetCurrentFileInfo OF((unzFile file,
++MINIZIP_EXTERN int ZEXPORT unzGetCurrentFileInfo OF((unzFile file,
                           unz_file_info *pfile_info,
                           char *szFileName,
                           uLong fileNameBufferSize,
-@@ -318,7 +318,7 @@
+@@ -318,7 +320,7 @@
  
  /** Addition for GDAL : START */
  
 -extern ZPOS64_T ZEXPORT unzGetCurrentFileZStreamPos64 OF((unzFile file));
-+ZEXTERN ZPOS64_T ZEXPORT unzGetCurrentFileZStreamPos64 OF((unzFile file));
++MINIZIP_EXTERN ZPOS64_T ZEXPORT unzGetCurrentFileZStreamPos64 OF((unzFile file));
  
  /** Addition for GDAL : END */
  
-@@ -328,13 +328,13 @@
+@@ -328,13 +330,13 @@
     from it, and close it (you can close it before reading all the file)
     */
  
 -extern int ZEXPORT unzOpenCurrentFile OF((unzFile file));
-+ZEXTERN int ZEXPORT unzOpenCurrentFile OF((unzFile file));
++MINIZIP_EXTERN int ZEXPORT unzOpenCurrentFile OF((unzFile file));
  /*
    Open for reading data the current file in the zipfile.
    If there is no error, the return value is UNZ_OK.
  */
  
 -extern int ZEXPORT unzOpenCurrentFilePassword OF((unzFile file,
-+ZEXTERN int ZEXPORT unzOpenCurrentFilePassword OF((unzFile file,
++MINIZIP_EXTERN int ZEXPORT unzOpenCurrentFilePassword OF((unzFile file,
                                                    const char* password));
  /*
    Open for reading data the current file in the zipfile.
-@@ -342,7 +342,7 @@
+@@ -342,7 +344,7 @@
    If there is no error, the return value is UNZ_OK.
  */
  
 -extern int ZEXPORT unzOpenCurrentFile2 OF((unzFile file,
-+ZEXTERN int ZEXPORT unzOpenCurrentFile2 OF((unzFile file,
++MINIZIP_EXTERN int ZEXPORT unzOpenCurrentFile2 OF((unzFile file,
                                             int* method,
                                             int* level,
                                             int raw));
-@@ -355,7 +355,7 @@
+@@ -355,7 +357,7 @@
           but you CANNOT set method parameter as NULL
  */
  
 -extern int ZEXPORT unzOpenCurrentFile3 OF((unzFile file,
-+ZEXTERN int ZEXPORT unzOpenCurrentFile3 OF((unzFile file,
++MINIZIP_EXTERN int ZEXPORT unzOpenCurrentFile3 OF((unzFile file,
                                             int* method,
                                             int* level,
                                             int raw,
-@@ -370,13 +370,13 @@
+@@ -370,13 +372,13 @@
  */
  
  
 -extern int ZEXPORT unzCloseCurrentFile OF((unzFile file));
-+ZEXTERN int ZEXPORT unzCloseCurrentFile OF((unzFile file));
++MINIZIP_EXTERN int ZEXPORT unzCloseCurrentFile OF((unzFile file));
  /*
    Close the file in zip opened with unzOpenCurrentFile
    Return UNZ_CRCERROR if all the file was read but the CRC is not good
  */
  
 -extern int ZEXPORT unzReadCurrentFile OF((unzFile file,
-+ZEXTERN int ZEXPORT unzReadCurrentFile OF((unzFile file,
++MINIZIP_EXTERN int ZEXPORT unzReadCurrentFile OF((unzFile file,
                        voidp buf,
                        unsigned len));
  /*
-@@ -390,19 +390,19 @@
+@@ -390,19 +392,19 @@
      (UNZ_ERRNO for IO error, or zLib error for uncompress error)
  */
  
 -extern z_off_t ZEXPORT unztell OF((unzFile file));
-+ZEXTERN z_off_t ZEXPORT unztell OF((unzFile file));
++MINIZIP_EXTERN z_off_t ZEXPORT unztell OF((unzFile file));
  
 -extern ZPOS64_T ZEXPORT unztell64 OF((unzFile file));
-+ZEXTERN ZPOS64_T ZEXPORT unztell64 OF((unzFile file));
++MINIZIP_EXTERN ZPOS64_T ZEXPORT unztell64 OF((unzFile file));
  /*
    Give the current position in uncompressed data
  */
  
 -extern int ZEXPORT unzeof OF((unzFile file));
-+ZEXTERN int ZEXPORT unzeof OF((unzFile file));
++MINIZIP_EXTERN int ZEXPORT unzeof OF((unzFile file));
  /*
    return 1 if the end of file was reached, 0 elsewhere
  */
  
 -extern int ZEXPORT unzGetLocalExtrafield OF((unzFile file,
-+ZEXTERN int ZEXPORT unzGetLocalExtrafield OF((unzFile file,
++MINIZIP_EXTERN int ZEXPORT unzGetLocalExtrafield OF((unzFile file,
                                               voidp buf,
                                               unsigned len));
  /*
-@@ -421,12 +421,12 @@
+@@ -421,12 +423,12 @@
  /***************************************************************************/
  
  /* Get the current file offset */
 -extern ZPOS64_T ZEXPORT unzGetOffset64 (unzFile file);
 -extern uLong ZEXPORT unzGetOffset (unzFile file);
-+ZEXTERN ZPOS64_T ZEXPORT unzGetOffset64 (unzFile file);
-+ZEXTERN uLong ZEXPORT unzGetOffset (unzFile file);
++MINIZIP_EXTERN ZPOS64_T ZEXPORT unzGetOffset64 (unzFile file);
++MINIZIP_EXTERN uLong ZEXPORT unzGetOffset (unzFile file);
  
  /* Set the current file offset */
 -extern int ZEXPORT unzSetOffset64 (unzFile file, ZPOS64_T pos);
 -extern int ZEXPORT unzSetOffset (unzFile file, uLong pos);
-+ZEXTERN int ZEXPORT unzSetOffset64 (unzFile file, ZPOS64_T pos);
-+ZEXTERN int ZEXPORT unzSetOffset (unzFile file, uLong pos);
++MINIZIP_EXTERN int ZEXPORT unzSetOffset64 (unzFile file, ZPOS64_T pos);
++MINIZIP_EXTERN int ZEXPORT unzSetOffset (unzFile file, uLong pos);
  
  
  
+diff -Naur src/contrib/minizip/zip.c src/contrib/minizip/zip.c
 --- src/contrib/minizip/zip.c	2017-12-05 11:31:51.914125000 +0300
-+++ src/contrib/minizip/zip.c	2017-12-18 18:18:54.515395200 +0300
++++ src/contrib/minizip/zip.c	2017-12-19 19:58:36.959368800 +0300
 @@ -846,7 +846,7 @@
  
  
  /************************************************************/
 -extern zipFile ZEXPORT zipOpen3 (const void *pathname, int append, zipcharpc* globalcomment, zlib_filefunc64_32_def* pzlib_filefunc64_32_def)
-+ZEXTERN zipFile ZEXPORT zipOpen3 (const void *pathname, int append, zipcharpc* globalcomment, zlib_filefunc64_32_def* pzlib_filefunc64_32_def)
++MINIZIP_EXTERN zipFile ZEXPORT zipOpen3 (const void *pathname, int append, zipcharpc* globalcomment, zlib_filefunc64_32_def* pzlib_filefunc64_32_def)
  {
      zip64_internal ziinit;
      zip64_internal* zi;
@@ -561,7 +750,7 @@
  }
  
 -extern zipFile ZEXPORT zipOpen2 (const char *pathname, int append, zipcharpc* globalcomment, zlib_filefunc_def* pzlib_filefunc32_def)
-+ZEXTERN zipFile ZEXPORT zipOpen2 (const char *pathname, int append, zipcharpc* globalcomment, zlib_filefunc_def* pzlib_filefunc32_def)
++MINIZIP_EXTERN zipFile ZEXPORT zipOpen2 (const char *pathname, int append, zipcharpc* globalcomment, zlib_filefunc_def* pzlib_filefunc32_def)
  {
      if (pzlib_filefunc32_def != NULL)
      {
@@ -570,7 +759,7 @@
  }
  
 -extern zipFile ZEXPORT zipOpen2_64 (const void *pathname, int append, zipcharpc* globalcomment, zlib_filefunc64_def* pzlib_filefunc_def)
-+ZEXTERN zipFile ZEXPORT zipOpen2_64 (const void *pathname, int append, zipcharpc* globalcomment, zlib_filefunc64_def* pzlib_filefunc_def)
++MINIZIP_EXTERN zipFile ZEXPORT zipOpen2_64 (const void *pathname, int append, zipcharpc* globalcomment, zlib_filefunc64_def* pzlib_filefunc_def)
  {
      if (pzlib_filefunc_def != NULL)
      {
@@ -579,13 +768,13 @@
  
  
 -extern zipFile ZEXPORT zipOpen (const char* pathname, int append)
-+ZEXTERN zipFile ZEXPORT zipOpen (const char* pathname, int append)
++MINIZIP_EXTERN zipFile ZEXPORT zipOpen (const char* pathname, int append)
  {
      return zipOpen3((const void*)pathname,append,NULL,NULL);
  }
  
 -extern zipFile ZEXPORT zipOpen64 (const void* pathname, int append)
-+ZEXTERN zipFile ZEXPORT zipOpen64 (const void* pathname, int append)
++MINIZIP_EXTERN zipFile ZEXPORT zipOpen64 (const void* pathname, int append)
  {
      return zipOpen3(pathname,append,NULL,NULL);
  }
@@ -594,7 +783,7 @@
   unnecessary allocations.
   */
 -extern int ZEXPORT zipOpenNewFileInZip4_64 (zipFile file, const char* filename, const zip_fileinfo* zipfi,
-+ZEXTERN int ZEXPORT zipOpenNewFileInZip4_64 (zipFile file, const char* filename, const zip_fileinfo* zipfi,
++MINIZIP_EXTERN int ZEXPORT zipOpenNewFileInZip4_64 (zipFile file, const char* filename, const zip_fileinfo* zipfi,
                                           const void* extrafield_local, uInt size_extrafield_local,
                                           const void* extrafield_global, uInt size_extrafield_global,
                                           const char* comment, int method, int level, int raw,
@@ -603,7 +792,7 @@
  }
  
 -extern int ZEXPORT zipOpenNewFileInZip4 (zipFile file, const char* filename, const zip_fileinfo* zipfi,
-+ZEXTERN int ZEXPORT zipOpenNewFileInZip4 (zipFile file, const char* filename, const zip_fileinfo* zipfi,
++MINIZIP_EXTERN int ZEXPORT zipOpenNewFileInZip4 (zipFile file, const char* filename, const zip_fileinfo* zipfi,
                                           const void* extrafield_local, uInt size_extrafield_local,
                                           const void* extrafield_global, uInt size_extrafield_global,
                                           const char* comment, int method, int level, int raw,
@@ -612,7 +801,7 @@
  }
  
 -extern int ZEXPORT zipOpenNewFileInZip3 (zipFile file, const char* filename, const zip_fileinfo* zipfi,
-+ZEXTERN int ZEXPORT zipOpenNewFileInZip3 (zipFile file, const char* filename, const zip_fileinfo* zipfi,
++MINIZIP_EXTERN int ZEXPORT zipOpenNewFileInZip3 (zipFile file, const char* filename, const zip_fileinfo* zipfi,
                                           const void* extrafield_local, uInt size_extrafield_local,
                                           const void* extrafield_global, uInt size_extrafield_global,
                                           const char* comment, int method, int level, int raw,
@@ -621,7 +810,7 @@
  }
  
 -extern int ZEXPORT zipOpenNewFileInZip3_64(zipFile file, const char* filename, const zip_fileinfo* zipfi,
-+ZEXTERN int ZEXPORT zipOpenNewFileInZip3_64(zipFile file, const char* filename, const zip_fileinfo* zipfi,
++MINIZIP_EXTERN int ZEXPORT zipOpenNewFileInZip3_64(zipFile file, const char* filename, const zip_fileinfo* zipfi,
                                           const void* extrafield_local, uInt size_extrafield_local,
                                           const void* extrafield_global, uInt size_extrafield_global,
                                           const char* comment, int method, int level, int raw,
@@ -630,7 +819,7 @@
  }
  
 -extern int ZEXPORT zipOpenNewFileInZip2(zipFile file, const char* filename, const zip_fileinfo* zipfi,
-+ZEXTERN int ZEXPORT zipOpenNewFileInZip2(zipFile file, const char* filename, const zip_fileinfo* zipfi,
++MINIZIP_EXTERN int ZEXPORT zipOpenNewFileInZip2(zipFile file, const char* filename, const zip_fileinfo* zipfi,
                                          const void* extrafield_local, uInt size_extrafield_local,
                                          const void* extrafield_global, uInt size_extrafield_global,
                                          const char* comment, int method, int level, int raw)
@@ -639,7 +828,7 @@
  }
  
 -extern int ZEXPORT zipOpenNewFileInZip2_64(zipFile file, const char* filename, const zip_fileinfo* zipfi,
-+ZEXTERN int ZEXPORT zipOpenNewFileInZip2_64(zipFile file, const char* filename, const zip_fileinfo* zipfi,
++MINIZIP_EXTERN int ZEXPORT zipOpenNewFileInZip2_64(zipFile file, const char* filename, const zip_fileinfo* zipfi,
                                          const void* extrafield_local, uInt size_extrafield_local,
                                          const void* extrafield_global, uInt size_extrafield_global,
                                          const char* comment, int method, int level, int raw, int zip64)
@@ -648,7 +837,7 @@
  }
  
 -extern int ZEXPORT zipOpenNewFileInZip64 (zipFile file, const char* filename, const zip_fileinfo* zipfi,
-+ZEXTERN int ZEXPORT zipOpenNewFileInZip64 (zipFile file, const char* filename, const zip_fileinfo* zipfi,
++MINIZIP_EXTERN int ZEXPORT zipOpenNewFileInZip64 (zipFile file, const char* filename, const zip_fileinfo* zipfi,
                                          const void* extrafield_local, uInt size_extrafield_local,
                                          const void*extrafield_global, uInt size_extrafield_global,
                                          const char* comment, int method, int level, int zip64)
@@ -657,7 +846,7 @@
  }
  
 -extern int ZEXPORT zipOpenNewFileInZip (zipFile file, const char* filename, const zip_fileinfo* zipfi,
-+ZEXTERN int ZEXPORT zipOpenNewFileInZip (zipFile file, const char* filename, const zip_fileinfo* zipfi,
++MINIZIP_EXTERN int ZEXPORT zipOpenNewFileInZip (zipFile file, const char* filename, const zip_fileinfo* zipfi,
                                          const void* extrafield_local, uInt size_extrafield_local,
                                          const void*extrafield_global, uInt size_extrafield_global,
                                          const char* comment, int method, int level)
@@ -666,7 +855,7 @@
  }
  
 -extern int ZEXPORT zipWriteInFileInZip (zipFile file,const void* buf,unsigned int len)
-+ZEXTERN int ZEXPORT zipWriteInFileInZip (zipFile file,const void* buf,unsigned int len)
++MINIZIP_EXTERN int ZEXPORT zipWriteInFileInZip (zipFile file,const void* buf,unsigned int len)
  {
      zip64_internal* zi;
      int err=ZIP_OK;
@@ -675,13 +864,13 @@
  }
  
 -extern int ZEXPORT zipCloseFileInZipRaw (zipFile file, uLong uncompressed_size, uLong crc32)
-+ZEXTERN int ZEXPORT zipCloseFileInZipRaw (zipFile file, uLong uncompressed_size, uLong crc32)
++MINIZIP_EXTERN int ZEXPORT zipCloseFileInZipRaw (zipFile file, uLong uncompressed_size, uLong crc32)
  {
      return zipCloseFileInZipRaw64 (file, uncompressed_size, crc32);
  }
  
 -extern int ZEXPORT zipCloseFileInZipRaw64 (zipFile file, ZPOS64_T uncompressed_size, uLong crc32)
-+ZEXTERN int ZEXPORT zipCloseFileInZipRaw64 (zipFile file, ZPOS64_T uncompressed_size, uLong crc32)
++MINIZIP_EXTERN int ZEXPORT zipCloseFileInZipRaw64 (zipFile file, ZPOS64_T uncompressed_size, uLong crc32)
  {
      zip64_internal* zi;
      ZPOS64_T compressed_size;
@@ -690,7 +879,7 @@
  }
  
 -extern int ZEXPORT zipCloseFileInZip (zipFile file)
-+ZEXTERN int ZEXPORT zipCloseFileInZip (zipFile file)
++MINIZIP_EXTERN int ZEXPORT zipCloseFileInZip (zipFile file)
  {
      return zipCloseFileInZipRaw (file,0,0);
  }
@@ -699,7 +888,7 @@
  }
  
 -extern int ZEXPORT zipClose (zipFile file, const char* global_comment)
-+ZEXTERN int ZEXPORT zipClose (zipFile file, const char* global_comment)
++MINIZIP_EXTERN int ZEXPORT zipClose (zipFile file, const char* global_comment)
  {
      zip64_internal* zi;
      int err = 0;
@@ -708,113 +897,123 @@
  }
  
 -extern int ZEXPORT zipRemoveExtraInfoBlock (char* pData, int* dataLen, short sHeader)
-+ZEXTERN int ZEXPORT zipRemoveExtraInfoBlock (char* pData, int* dataLen, short sHeader)
++MINIZIP_EXTERN int ZEXPORT zipRemoveExtraInfoBlock (char* pData, int* dataLen, short sHeader)
  {
    char* p = pData;
    int size = 0;
+diff -Naur src/contrib/minizip/zip.h src/contrib/minizip/zip.h
 --- src/contrib/minizip/zip.h	2017-12-05 11:31:51.915125100 +0300
-+++ src/contrib/minizip/zip.h	2017-12-18 18:20:44.194668500 +0300
-@@ -113,8 +113,8 @@
++++ src/contrib/minizip/zip.h	2017-12-19 19:56:07.880842000 +0300
+@@ -60,6 +60,8 @@
+ 
+ #define Z_BZIP2ED 12
+ 
++#include "minizip_extern.h"
++
+ #if defined(STRICTZIP) || defined(STRICTZIPUNZIP)
+ /* like the STRICT of WIN32, we define a pointer that cannot be converted
+     from (void*) without cast */
+@@ -113,8 +115,8 @@
  #define APPEND_STATUS_CREATEAFTER   (1)
  #define APPEND_STATUS_ADDINZIP      (2)
  
 -extern zipFile ZEXPORT zipOpen OF((const char *pathname, int append));
 -extern zipFile ZEXPORT zipOpen64 OF((const void *pathname, int append));
-+ZEXTERN zipFile ZEXPORT zipOpen OF((const char *pathname, int append));
-+ZEXTERN zipFile ZEXPORT zipOpen64 OF((const void *pathname, int append));
++MINIZIP_EXTERN zipFile ZEXPORT zipOpen OF((const char *pathname, int append));
++MINIZIP_EXTERN zipFile ZEXPORT zipOpen64 OF((const void *pathname, int append));
  /*
    Create a zipfile.
       pathname contain on Windows XP a filename like "c:\\zlib\\zlib113.zip" or on
-@@ -134,17 +134,17 @@
+@@ -134,17 +136,17 @@
     Of couse, you can use RAW reading and writing to copy the file you did not want delte
  */
  
 -extern zipFile ZEXPORT zipOpen2 OF((const char *pathname,
-+ZEXTERN zipFile ZEXPORT zipOpen2 OF((const char *pathname,
++MINIZIP_EXTERN zipFile ZEXPORT zipOpen2 OF((const char *pathname,
                                     int append,
                                     zipcharpc* globalcomment,
                                     zlib_filefunc_def* pzlib_filefunc_def));
  
 -extern zipFile ZEXPORT zipOpen2_64 OF((const void *pathname,
-+ZEXTERN zipFile ZEXPORT zipOpen2_64 OF((const void *pathname,
++MINIZIP_EXTERN zipFile ZEXPORT zipOpen2_64 OF((const void *pathname,
                                     int append,
                                     zipcharpc* globalcomment,
                                     zlib_filefunc64_def* pzlib_filefunc_def));
  
 -extern int ZEXPORT zipOpenNewFileInZip OF((zipFile file,
-+ZEXTERN int ZEXPORT zipOpenNewFileInZip OF((zipFile file,
++MINIZIP_EXTERN int ZEXPORT zipOpenNewFileInZip OF((zipFile file,
                         const char* filename,
                         const zip_fileinfo* zipfi,
                         const void* extrafield_local,
-@@ -155,7 +155,7 @@
+@@ -155,7 +157,7 @@
                         int method,
                         int level));
  
 -extern int ZEXPORT zipOpenNewFileInZip64 OF((zipFile file,
-+ZEXTERN int ZEXPORT zipOpenNewFileInZip64 OF((zipFile file,
++MINIZIP_EXTERN int ZEXPORT zipOpenNewFileInZip64 OF((zipFile file,
                         const char* filename,
                         const zip_fileinfo* zipfi,
                         const void* extrafield_local,
-@@ -184,7 +184,7 @@
+@@ -184,7 +186,7 @@
  */
  
  
 -extern int ZEXPORT zipOpenNewFileInZip2 OF((zipFile file,
-+ZEXTERN int ZEXPORT zipOpenNewFileInZip2 OF((zipFile file,
++MINIZIP_EXTERN int ZEXPORT zipOpenNewFileInZip2 OF((zipFile file,
                                              const char* filename,
                                              const zip_fileinfo* zipfi,
                                              const void* extrafield_local,
-@@ -197,7 +197,7 @@
+@@ -197,7 +199,7 @@
                                              int raw));
  
  
 -extern int ZEXPORT zipOpenNewFileInZip2_64 OF((zipFile file,
-+ZEXTERN int ZEXPORT zipOpenNewFileInZip2_64 OF((zipFile file,
++MINIZIP_EXTERN int ZEXPORT zipOpenNewFileInZip2_64 OF((zipFile file,
                                              const char* filename,
                                              const zip_fileinfo* zipfi,
                                              const void* extrafield_local,
-@@ -213,7 +213,7 @@
+@@ -213,7 +215,7 @@
    Same than zipOpenNewFileInZip, except if raw=1, we write raw file
   */
  
 -extern int ZEXPORT zipOpenNewFileInZip3 OF((zipFile file,
-+ZEXTERN int ZEXPORT zipOpenNewFileInZip3 OF((zipFile file,
++MINIZIP_EXTERN int ZEXPORT zipOpenNewFileInZip3 OF((zipFile file,
                                              const char* filename,
                                              const zip_fileinfo* zipfi,
                                              const void* extrafield_local,
-@@ -230,7 +230,7 @@
+@@ -230,7 +232,7 @@
                                              const char* password,
                                              uLong crcForCrypting));
  
 -extern int ZEXPORT zipOpenNewFileInZip3_64 OF((zipFile file,
-+ZEXTERN int ZEXPORT zipOpenNewFileInZip3_64 OF((zipFile file,
++MINIZIP_EXTERN int ZEXPORT zipOpenNewFileInZip3_64 OF((zipFile file,
                                              const char* filename,
                                              const zip_fileinfo* zipfi,
                                              const void* extrafield_local,
-@@ -256,7 +256,7 @@
+@@ -256,7 +258,7 @@
      crcForCrypting : crc of file to compress (needed for crypting)
   */
  
 -extern int ZEXPORT zipOpenNewFileInZip4 OF((zipFile file,
-+ZEXTERN int ZEXPORT zipOpenNewFileInZip4 OF((zipFile file,
++MINIZIP_EXTERN int ZEXPORT zipOpenNewFileInZip4 OF((zipFile file,
                                              const char* filename,
                                              const zip_fileinfo* zipfi,
                                              const void* extrafield_local,
-@@ -277,7 +277,7 @@
+@@ -277,7 +279,7 @@
                                              ));
  
  
 -extern int ZEXPORT zipOpenNewFileInZip4_64 OF((zipFile file,
-+ZEXTERN int ZEXPORT zipOpenNewFileInZip4_64 OF((zipFile file,
++MINIZIP_EXTERN int ZEXPORT zipOpenNewFileInZip4_64 OF((zipFile file,
                                              const char* filename,
                                              const zip_fileinfo* zipfi,
                                              const void* extrafield_local,
-@@ -304,23 +304,23 @@
+@@ -304,23 +306,23 @@
   */
  
  
 -extern int ZEXPORT zipWriteInFileInZip OF((zipFile file,
-+ZEXTERN int ZEXPORT zipWriteInFileInZip OF((zipFile file,
++MINIZIP_EXTERN int ZEXPORT zipWriteInFileInZip OF((zipFile file,
                         const void* buf,
                         unsigned len));
  /*
@@ -822,27 +1021,27 @@
  */
  
 -extern int ZEXPORT zipCloseFileInZip OF((zipFile file));
-+ZEXTERN int ZEXPORT zipCloseFileInZip OF((zipFile file));
++MINIZIP_EXTERN int ZEXPORT zipCloseFileInZip OF((zipFile file));
  /*
    Close the current file in the zipfile
  */
  
 -extern int ZEXPORT zipCloseFileInZipRaw OF((zipFile file,
-+ZEXTERN int ZEXPORT zipCloseFileInZipRaw OF((zipFile file,
++MINIZIP_EXTERN int ZEXPORT zipCloseFileInZipRaw OF((zipFile file,
                                              uLong uncompressed_size,
                                              uLong crc32));
  
 -extern int ZEXPORT zipCloseFileInZipRaw64 OF((zipFile file,
-+ZEXTERN int ZEXPORT zipCloseFileInZipRaw64 OF((zipFile file,
++MINIZIP_EXTERN int ZEXPORT zipCloseFileInZipRaw64 OF((zipFile file,
                                              ZPOS64_T uncompressed_size,
                                              uLong crc32));
  
-@@ -330,14 +330,14 @@
+@@ -330,14 +332,14 @@
    uncompressed_size and crc32 are value for the uncompressed size
  */
  
 -extern int ZEXPORT zipClose OF((zipFile file,
-+ZEXTERN int ZEXPORT zipClose OF((zipFile file,
++MINIZIP_EXTERN int ZEXPORT zipClose OF((zipFile file,
                  const char* global_comment));
  /*
    Close the zipfile
@@ -850,7 +1049,7 @@
  
  
 -extern int ZEXPORT zipRemoveExtraInfoBlock OF((char* pData, int* dataLen, short sHeader));
-+ZEXTERN int ZEXPORT zipRemoveExtraInfoBlock OF((char* pData, int* dataLen, short sHeader));
++MINIZIP_EXTERN int ZEXPORT zipRemoveExtraInfoBlock OF((char* pData, int* dataLen, short sHeader));
  /*
    zipRemoveExtraInfoBlock -  Added by Mathias Svensson
  
