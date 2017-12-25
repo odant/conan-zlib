@@ -27,16 +27,16 @@ add_test(
 )
 
 if(ENABLE_MINIZIP)
-    add_executable(test_minizip_create test_minizip_create.c)
-    target_link_libraries(test_minizip_create ZLIB::minizip)
-    set_target_properties(test_minizip_create
+    add_executable(test_minizip_compress test_minizip_compress.c)
+    target_link_libraries(test_minizip_compress ZLIB::minizip)
+    set_target_properties(test_minizip_compress
         PROPERTIES
         INSTALL_RPATH "$ORIGIN"
         BUILD_WITH_INSTALL_RPATH True
     )
     add_test(
-        NAME test_minizip_create
+        NAME test_minizip_compress
         WORKING_DIRECTORY ${CMAKE_BINARY_DIR}/bin
-        COMMAND test_minizip_create
+        COMMAND test_minizip_compress
     )
 endif()
