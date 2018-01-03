@@ -10,8 +10,8 @@ class ZlibConan(ConanFile):
                   "(Also Free, Not to Mention Unencumbered by Patents)"
     url = "https://zlib.net/"
     settings = "os", "compiler", "build_type", "arch"
-    options = {"shared": [False, True], "minizip": [False, True], "disable_dll_sign": [False, True]}
-    default_options = "shared=False", "minizip=True", "disable_dll_sign=False"
+    options = {"shared": [False, True], "minizip": [False, True], "dll_sign": [False, True], "fPIC": [False, True]}
+    default_options = "shared=False", "minizip=True", "dll_sign=True", "fPIC=True"
     generators = "cmake"
     exports_sources = "src/*", "minizip.patch", "FindZLIB.cmake"
     no_copy_source = True
@@ -22,9 +22,9 @@ class ZlibConan(ConanFile):
                 self.settings.os == "Windows" and
                 self.settings.build_type == "Release" and
                 self.options.shared and
-                not self.options.disable_dll_sign
+                self.options.dll_sign
             ):
-                self.build_requires("find_windows_signtool/[>=1.0]@%s/stable" % self.user)
+                self.build_requires("find_windows_signtool/[~=1.0]@%s/stable" % self.user)
 
     def source(self):
         tools.patch(patch_file="minizip.patch")
@@ -68,7 +68,7 @@ class ZlibConan(ConanFile):
                 self.settings.os == "Windows" and
                 self.settings.build_type == "Release" and
                 self.options.shared and
-                not self.options.disable_dll_sign
+                self.options.dll_sign
             ):
                 with tools.pythonpath(self):
                     from find_windows_signtool import find_signtool
