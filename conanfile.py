@@ -17,14 +17,13 @@ class ZlibConan(ConanFile):
     no_copy_source = True
     build_policy = "missing"
     
+    def configure(self):
+        if self.settings.os != "Windows" or not self.options.shared:
+            del self.options.dll_sign
+    
     def build_requirements(self):
-        if (
-                self.settings.os == "Windows" and
-                self.settings.build_type == "Release" and
-                self.options.shared and
-                self.options.dll_sign
-            ):
-                self.build_requires("find_windows_signtool/[~=1.0]@%s/stable" % self.user)
+        if hasattr(self.options, "dll_sign") and self.options.dll_sign:
+            self.build_requires("find_windows_signtool/[~=1.0]@%s/stable" % self.user)
 
     def source(self):
         tools.patch(patch_file="minizip.patch")
@@ -64,21 +63,16 @@ class ZlibConan(ConanFile):
             self.output.info("Remove %s" % fpath)
             os.remove(fpath)
         # Sign DLL
-        if (
-                self.settings.os == "Windows" and
-                self.settings.build_type == "Release" and
-                self.options.shared and
-                self.options.dll_sign
-            ):
-                with tools.pythonpath(self):
-                    from find_windows_signtool import find_signtool
-                    signtool = '"' + find_signtool(str(self.settings.arch)) + '"'
-                    params =  "sign /a /t http://timestamp.verisign.com/scripts/timestamp.dll"
-                    pattern = os.path.join(self.package_folder, "bin", "*.dll")
-                    for fpath in glob.glob(pattern):
-                        self.output.info("Sign %s" % fpath)
-                        cmd = "{} {} {}".format(signtool, params, fpath)
-                        self.run(cmd)
+        if hasattr(self.options, "dll_sign") and self.options.dll_sign:
+            with tools.pythonpath(self):
+                from find_windows_signtool import find_signtool
+                signtool = '"' + find_signtool(str(self.settings.arch)) + '"'
+                params =  "sign /a /t http://timestamp.verisign.com/scripts/timestamp.dll"
+                pattern = os.path.join(self.package_folder, "bin", "*.dll")
+                for fpath in glob.glob(pattern):
+                    self.output.info("Sign %s" % fpath)
+                    cmd = "{} {} {}".format(signtool, params, fpath)
+                    self.run(cmd)
         
     def package(self):
         self.copy("FindZLIB.cmake", ".", ".")
