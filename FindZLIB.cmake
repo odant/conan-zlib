@@ -46,10 +46,16 @@ if(ZLIB_FOUND)
             NO_DEFAULT_PATH
         )
         
+        set(MINIZIP_VERSION_MAJOR 1)
+        set(MINIZIP_VERSION_MINOR 1)
+        set(MINIZIP_VERSION_PATCH 0)
+        set(MINIZIP_VERSION_STRING "${MINIZIP_VERSION_MAJOR}.${MINIZIP_VERSION_MINOR}.${MINIZIP_VERSION_PATCH}")
+        
         set(MINIZIP_FIND_REQUIRED ON)
         include(${CMAKE_ROOT}/Modules/FindPackageHandleStandardArgs.cmake)
         find_package_handle_standard_args(MINIZIP
             REQUIRED_VARS MINIZIP_LIBRARY MINIZIP_INCLUDE_DIR
+            VERSION_VAR MINIZIP_VERSION_STRING
         )
         
         if(MINIZIP_FOUND)
