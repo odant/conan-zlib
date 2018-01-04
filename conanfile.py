@@ -86,15 +86,15 @@ class ZlibConan(ConanFile):
         #Packing PDB
         if self.settings.os == "Windows" and self.settings.compiler == "Visual Studio":
             if self.options.shared:
-                self.copy("*zlib.pdb", dst="bin", src=".", keep_path=False)
-                self.copy("*zlibd.pdb", dst="bin", src=".", keep_path=False)
-                self.copy("*minizip.pdb", dst="bin", src=".", keep_path=False)
-                self.copy("*minizipd.pdb", dst="bin", src=".", keep_path=False)
+                self.copy("*zlib.pdb", dst="bin", keep_path=False)
+                self.copy("*zlibd.pdb", dst="bin", keep_path=False)
+                self.copy("*minizip.pdb", dst="bin", keep_path=False)
+                self.copy("*minizipd.pdb", dst="bin", keep_path=False)
             else:
-                self.copy("*zlibstatic.pdb", dst="bin", src=".", keep_path=False)
-                self.copy("*zlibstaticd.pdb", dst="bin", src=".", keep_path=False)
-                self.copy("*minizipstatic.pdb", dst="bin", src=".", keep_path=False)
-                self.copy("*minizipstaticd.pdb", dst="bin", src=".", keep_path=False)
+                self.copy("*zlibstatic.pdb", dst="bin", keep_path=False)
+                self.copy("*zlibstaticd.pdb", dst="bin", keep_path=False)
+                self.copy("*minizipstatic.pdb", dst="bin", keep_path=False)
+                self.copy("*minizipstaticd.pdb", dst="bin", keep_path=False)
 
     def package_info(self):
         libs = None
