@@ -19,10 +19,10 @@ class ZlibConan(ConanFile):
     
     def configure(self):
         if self.settings.os != "Windows" or not self.options.shared:
-            del self.options.dll_sign
+            self.options.dll_sign = False
     
     def build_requirements(self):
-        if hasattr(self.options, "dll_sign") and self.options.dll_sign:
+        if self.options.dll_sign:
             self.build_requires("find_windows_signtool/[~=1.0]@%s/stable" % self.user)
 
     def source(self):
@@ -63,7 +63,7 @@ class ZlibConan(ConanFile):
             self.output.info("Remove %s" % fpath)
             os.remove(fpath)
         # Sign DLL
-        if hasattr(self.options, "dll_sign") and self.options.dll_sign:
+        if self.options.dll_sign:
             with tools.pythonpath(self):
                 from find_windows_signtool import find_signtool
                 signtool = '"' + find_signtool(str(self.settings.arch)) + '"'
