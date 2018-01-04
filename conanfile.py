@@ -18,8 +18,14 @@ class ZlibConan(ConanFile):
     build_policy = "missing"
     
     def configure(self):
+        # DLL sign
         if self.settings.os != "Windows" or not self.options.shared:
             self.options.dll_sign = False
+        # Position indepent
+        if self.settings.os == "Windows":
+            self.options.fPIC = False
+        elif self.options.shared:
+            self.options.fPIC = True
     
     def build_requirements(self):
         if self.options.dll_sign:
@@ -34,7 +40,8 @@ class ZlibConan(ConanFile):
         source_dir = os.path.join(self.source_folder, "src")        
         defs = {
             "SKIP_INSTALL_FILES:BOOL": True,
-            "ENABLE_MINIZIP:BOOL": self.options.minizip
+            "ENABLE_MINIZIP:BOOL": self.options.minizip,
+            "CMAKE_POSITION_INDEPENDENT_CODE:BOOL": self.options.fPIC
         }
         cmake.configure(source_dir=source_dir, defs=defs)
         cmake.build()
