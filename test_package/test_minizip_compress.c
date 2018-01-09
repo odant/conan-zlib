@@ -32,13 +32,13 @@ int main(int argc, char** argv) {
     zipFile zf = zipOpen64(zip_fname, APPEND_STATUS_CREATE);
     if (zf == NULL) {
         printf("Error in zipOpen64, fname => %s\n", zip_fname);
-        exit(1);
+        exit(EXIT_FAILURE);
     }
     
     char* src_data = malloc(SRC_SIZE);
     if (src_data == NULL) {
         printf("Can`t allocate source buffer\n");
-        exit(1);
+        exit(EXIT_FAILURE);
     }
     fill_data(src_data, SRC_SIZE);
     
@@ -47,25 +47,25 @@ int main(int argc, char** argv) {
     err = zipOpenNewFileInZip64(zf, "fname.bin", &zfi, NULL, 0, NULL, 0, NULL, Z_DEFLATED, Z_BEST_COMPRESSION, 0);
     if (err != ZIP_OK) {
         printf("Error in zipOpenNewFileInZip64, err => %d\n", err);
-        exit(1);
+        exit(EXIT_FAILURE);
     }
     
     err = zipWriteInFileInZip(zf, src_data, SRC_SIZE);
     if (err != ZIP_OK) {
         printf("Error in zipWriteInFileInZip, err => %d\n", err);
-        exit(1);
+        exit(EXIT_FAILURE);
     }
     
     err = zipCloseFileInZip(zf);
     if (err != ZIP_OK) {
         printf("Error in zipCloseFileInZip, err => %d\n", err);
-        exit(1);
+        exit(EXIT_FAILURE);
     }
         
     err = zipClose(zf, "Test MiniZip");
     if(err != ZIP_OK) {
         printf("Error in zipClose, err => %d\n", err);
-        exit(1);
+        exit(EXIT_FAILURE);
     }
     
     printf("ZIP file created, name => %s\n", zip_fname);
@@ -76,70 +76,70 @@ int main(int argc, char** argv) {
     unzFile unzf = unzOpen64(zip_fname);
     if (unzf == NULL) {
         printf("Error in unzOpen64, fname => %s\n", zip_fname);
-        exit(1);
+        exit(EXIT_FAILURE);
     }
 
     err = print_zip_info(unzf);
     if (err != UNZ_OK) {
         printf("Read ZIP info error, err => %d\n", err);
-        exit(1);
+        exit(EXIT_FAILURE);
     }
     
     err = unzGoToFirstFile(unzf);
     if (err != UNZ_OK) {
         printf("Error in unzGoToFirstFile, err => %d\n", err);
-        exit(1);
+        exit(EXIT_FAILURE);
     }
     
     unz_file_info64 unz_fi;    
     err = unzGetCurrentFileInfo64(unzf, &unz_fi, NULL, 0, NULL, 0, NULL, 0);
     if (err != UNZ_OK) {
         printf("Error in unzGetCurrentFileInfo64, err => %d\n", err);
-        exit(1);
+        exit(EXIT_FAILURE);
     }
     
     /* Compare size */
     if (unz_fi.uncompressed_size != (ZPOS64_T) SRC_SIZE) {
         printf("Error in Zip, failed comapre size. In Zip => %Ld, source size => %Ld\n", unz_fi.uncompressed_size, (ZPOS64_T) SRC_SIZE);
-        exit(1);
+        exit(EXIT_FAILURE);
     }
     
     err = unzOpenCurrentFile(unzf);
     if (err != UNZ_OK) {
         printf("Error in unzOpenCurrentFile, err => %d\n", err);
-        exit(1);
+        exit(EXIT_FAILURE);
     }
     
     char* read_data = malloc(SRC_SIZE);
     if (read_data == NULL) {
         printf("Can`t allocate read buffer\n");
-        exit(1);
+        exit(EXIT_FAILURE);
     }
     
     err = unzReadCurrentFile(unzf, read_data, SRC_SIZE);
     if (err < 0) {
         printf("Error in unzReadCurrentFile, err => %d\n", err);
-        exit(1);
+        exit(EXIT_FAILURE);
     }
 
     if (memcmp(src_data, read_data, SRC_SIZE) != 0) {
         printf("Error in zip, source and uncompressed data not equal.\n");
-        exit(1);
+        exit(EXIT_FAILURE);
     }
 
     err = unzClose(unzf);
     if (err != UNZ_OK) {
         printf("Error in unzClose, err => %d\n", err);
-        exit(1);
+        exit(EXIT_FAILURE);
     }
     
     free(src_data);
     free(read_data);
-    return 0;
+    return EXIT_SUCCESS;
 }
 
 void init(void) {
-    srand(time(0));
+    srand(time(NULL));
 }
 
 void fill_data(char* data, size_t len) {
