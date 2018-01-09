@@ -8,7 +8,7 @@ class ZlibConan(ConanFile):
     license = "http://www.zlib.net/zlib_license.html"
     description = "A Massively Spiffy Yet Delicately Unobtrusive Compression Library " \
                   "(Also Free, Not to Mention Unencumbered by Patents)"
-    url = "https://zlib.net/"
+    url = "https://github.com/odant/conan-zlib"
     settings = "os", "compiler", "build_type", "arch"
     options = {"shared": [False, True], "minizip": [False, True], "dll_sign": [False, True], "fPIC": [False, True]}
     default_options = "shared=False", "minizip=True", "dll_sign=True", "fPIC=True"
@@ -37,13 +37,10 @@ class ZlibConan(ConanFile):
     def build(self):
         # Build and install to package folder
         cmake = CMake(self, parallel=True)
-        source_dir = os.path.join(self.source_folder, "src")        
-        defs = {
-            "SKIP_INSTALL_FILES:BOOL": True,
-            "ENABLE_MINIZIP:BOOL": self.options.minizip,
-            "CMAKE_POSITION_INDEPENDENT_CODE:BOOL": self.options.fPIC
-        }
-        cmake.configure(source_dir=source_dir, defs=defs)
+        cmake.definitions["SKIP_INSTALL_FILES:BOOL"] = True
+        cmake.definitions["ENABLE_MINIZIP:BOOL"] = self.options.minizip
+        cmake.definitions["CMAKE_POSITION_INDEPENDENT_CODE:BOOL"] = self.options.fPIC
+        cmake.configure(source_folder="src")
         cmake.build()
         cmake.install()
         # Remove unused files
@@ -84,17 +81,14 @@ class ZlibConan(ConanFile):
     def package(self):
         self.copy("FindZLIB.cmake", dst=".", src=".")
         #Packing PDB
-        if self.settings.os == "Windows" and self.settings.compiler == "Visual Studio":
-            if self.options.shared:
-                self.copy("*zlib.pdb", dst="bin", keep_path=False)
-                self.copy("*zlibd.pdb", dst="bin", keep_path=False)
-                self.copy("*minizip.pdb", dst="bin", keep_path=False)
-                self.copy("*minizipd.pdb", dst="bin", keep_path=False)
-            else:
-                self.copy("*zlibstatic.pdb", dst="bin", keep_path=False)
-                self.copy("*zlibstaticd.pdb", dst="bin", keep_path=False)
-                self.copy("*minizipstatic.pdb", dst="bin", keep_path=False)
-                self.copy("*minizipstaticd.pdb", dst="bin", keep_path=False)
+        self.copy("*zlib.pdb", dst="bin", keep_path=False)
+        self.copy("*zlibd.pdb", dst="bin", keep_path=False)
+        self.copy("*minizip.pdb", dst="bin", keep_path=False)
+        self.copy("*minizipd.pdb", dst="bin", keep_path=False)
+        self.copy("*zlibstatic.pdb", dst="bin", keep_path=False)
+        self.copy("*zlibstaticd.pdb", dst="bin", keep_path=False)
+        self.copy("*minizipstatic.pdb", dst="bin", keep_path=False)
+        self.copy("*minizipstaticd.pdb", dst="bin", keep_path=False)
 
     def package_info(self):
         libs = None

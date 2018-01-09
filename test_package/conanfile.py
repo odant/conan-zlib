@@ -10,9 +10,9 @@ class ZlibTestConan(ConanFile):
         self.output.info("Env CONAN_PRINT_RUN_COMMANDS => %s" % os.getenv("CONAN_PRINT_RUN_COMMANDS", None))
         self.output.info("Env CONAN_LOG_RUN_TO_OUTPUT => %s" % os.getenv("CONAN_LOG_RUN_TO_OUTPUT", None))
 
-        cmake = CMake(self, parallel=True)
-        defs = {"ENABLE_MINIZIP:BOOL": self.options["zlib"].minizip}
-        cmake.configure(defs=defs)
+        cmake = CMake(self)
+        cmake.definitions["ENABLE_MINIZIP:BOOL"] = self.options["zlib"].minizip
+        cmake.configure()
         cmake.build()
 
     def imports(self):
