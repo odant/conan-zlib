@@ -26,6 +26,8 @@ class ZlibConan(ConanFile):
             self.options.fPIC = False
         elif self.options.shared:
             self.options.fPIC = True
+        # Pure C library
+        del self.settings.compiler.libcxx
     
     def build_requirements(self):
         if self.options.dll_sign:
