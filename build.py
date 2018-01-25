@@ -1,4 +1,5 @@
-import platform, os, copy
+import platform, os
+from copy import deepcopy
 from conan.packager import ConanMultiPackager
 
 
@@ -19,15 +20,34 @@ dll_sign = False if "CONAN_DISABLE_DLL_SIGN" in os.environ else True
 def vs_get_toolsets(compiler_version):
     return visual_toolsets if not visual_toolsets is None else visual_default_toolsets.get(compiler_version)
     
-def vs_add_toolset_to_build(settings, options, env_vars, build_requires, toolsets):
+def vs_add_toolset(builds):
     result = []
-    if toolsets is None:
-        result.append([settings, options, env_vars, build_requires])
-    else:
-        for t in toolsets:
-            s = copy.deepcopy(settings)
-            s["compiler.toolset"] = t
-            result.append([s, options, env_vars, build_requires])
+    for settings, options, env_vars, build_requires, reference in builds:
+        toolsets = vs_get_toolsets(settings["compiler.version"])
+        if toolsets is None or settings["compiler"] != "Visual Studio":
+            result.append([settings, options, env_vars, build_requires, reference])
+        else:
+            for t in toolsets:
+                settings = deepcopy(settings)
+                settings["compiler.toolset"] = t
+                result.append([settings, options, env_vars, build_requires, reference])
+    return result
+
+def add_dll_sign(builds):
+    result = []
+    for settings, options, env_vars, build_requires, reference in builds:
+        options = deepcopy(options)
+        options["zlib:dll_sign"] = dll_sign
+        result.append([settings, options, env_vars, build_requires, reference])
+    return result
+    
+def add_minizip(builds):
+    result = []
+    for settings, options, env_vars, build_requires, reference in builds:
+        for minizip in (True, False):
+            options = deepcopy(options)
+            options["zlib:minizip"] = minizip
+            result.append([settings, options, env_vars, build_requires, reference])
     return result
     
 if __name__ == "__main__":
@@ -37,13 +57,21 @@ if __name__ == "__main__":
         visual_runtimes=visual_runtimes
     )
     builder.add_common_builds(pure_c=True, shared_option_name="zlib:shared")
+    builder.add_common_builds(pure_c=True)
+    # Adjusting build configurations
+    builds = builder.items
     if platform.system() == "Windows":
-        builds = []
-        for settings, options, env_vars, build_requires in builder.builds:
-            if settings["compiler"] == "Visual Studio":
-                toolsets = vs_get_toolsets(settings["compiler.version"])
-                builds += vs_add_toolset_to_build(settings, options, env_vars, build_requires, toolsets)
-        for settings, options, env_vars, build_requires in builds:
-            options["zlib:dll_sign"] = dll_sign
-        builder.builds = builds
+        builds = vs_add_toolset(builds)
+        builds = add_dll_sign(builds)
+    builds = add_minizip(builds)
+    # Replace build configurations
+    builder.items = []
+    for settings, options, env_vars, build_requires, reference in builds:
+        builder.add(
+            settings=settings,
+            options=options,
+            env_vars=env_vars,
+            build_requires=build_requires,
+            reference=reference
+        )
     builder.run()
