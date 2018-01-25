@@ -3,7 +3,10 @@ env:
     CONAN_PRINT_RUN_COMMANDS: 1
     CONAN_LOG_RUN_TO_OUTPUT: 1
 
+    CONAN_REFERENCE: googletest/1.8.0
     CONAN_USERNAME: odant
+    CONAN_CHANNEL: testing
+    CONAN_STABLE_CHANNEL: stable
 
     CONAN_ARCHS: "\"x86_64, x86\""
     CONAN_BUILD_TYPES: "\"Debug, Release\""
