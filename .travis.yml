@@ -4,7 +4,6 @@ env:
     CONAN_LOG_RUN_TO_OUTPUT: 1
 
     CONAN_USERNAME: odant
-    CONAN_REFERENCE: zlib/1.2.11
 
     CONAN_ARCHS: "\"x86_64, x86\""
     CONAN_BUILD_TYPES: "\"Debug, Release\""
