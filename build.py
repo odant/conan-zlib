@@ -57,7 +57,6 @@ if __name__ == "__main__":
         visual_runtimes=visual_runtimes
     )
     builder.add_common_builds(pure_c=True, shared_option_name="zlib:shared")
-    builder.add_common_builds(pure_c=True)
     # Adjusting build configurations
     builds = builder.items
     if platform.system() == "Windows":
