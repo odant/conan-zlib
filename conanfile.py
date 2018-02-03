@@ -86,6 +86,7 @@ class ZlibConan(ConanFile):
         self.copy("*zip.h", dst="include/minizip", keep_path=False)
         self.copy("*unzip.h", dst="include/minizip", keep_path=False)
         self.copy("*minizip_extern.h", dst="include/minizip", keep_path=False)
+        self.copy("*crypt.h", dst="include/minizip", keep_path=False)
         self.copy("*mztools.h", dst="include/minizip", keep_path=False)
         self.copy("*ioapi.h", dst="include/minizip", keep_path=False)
         if self.settings.os == "Windows":
