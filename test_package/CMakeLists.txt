@@ -9,7 +9,7 @@ if(ENABLE_MINIZIP)
     set(COMPONENTS minizip)
 endif()
 
-find_package(ZLIB REQUIRED ${COMPONENTS})
+find_package(ZLIB REQUIRED COMPONENTS ${COMPONENTS})
 
 enable_testing()
 
