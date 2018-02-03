@@ -13,7 +13,7 @@ class ZlibConan(ConanFile):
     options = {"shared": [False, True], "minizip": [False, True], "dll_sign": [False, True], "fPIC": [False, True]}
     default_options = "shared=False", "minizip=True", "dll_sign=True", "fPIC=True"
     generators = "cmake"
-    exports_sources = "src/*", "minizip.patch", "FindZLIB.cmake"
+    exports_sources = "src/*", "CMakeLists.txt", "FindZLIB.cmake", "minizip.patch"
     no_copy_source = True
     build_policy = "missing"
     
@@ -32,19 +32,18 @@ class ZlibConan(ConanFile):
     def build_requirements(self):
         if self.options.dll_sign:
             self.build_requires("find_windows_signtool/[~=1.0]@%s/stable" % self.user)
-
+    
     def source(self):
         tools.patch(patch_file="minizip.patch")
-	
+
     def build(self):
         # Build and install to package folder
         cmake = CMake(self, parallel=True)
-        cmake.definitions["SKIP_INSTALL_FILES:BOOL"] = True
         cmake.definitions["ENABLE_MINIZIP:BOOL"] = self.options.minizip
         cmake.definitions["CMAKE_POSITION_INDEPENDENT_CODE:BOOL"] = self.options.fPIC
-        cmake.configure(source_folder="src")
+        cmake.configure()
         cmake.build()
-        cmake.install()
+
         # Remove unused files
         removable = []
         if self.options.shared:
@@ -77,12 +76,26 @@ class ZlibConan(ConanFile):
                 pattern = os.path.join(self.package_folder, "bin", "*.dll")
                 for fpath in glob.glob(pattern):
                     self.output.info("Sign %s" % fpath)
-                    cmd = "{} {} {}".format(signtool, params, fpath)
-                    self.run(cmd)
+                    self.run("%s %s %s" %(signtool, params, fpath))
         
     def package(self):
         self.copy("FindZLIB.cmake", dst=".", src=".")
-        #Packing PDB
+        # Headers
+        self.copy("*zlib.h", dst="include", keep_path=False)
+        self.copy("*zconf.h", dst="include", keep_path=False)
+        self.copy("*zip.h", dst="include/minizip", keep_path=False)
+        self.copy("*unzip.h", dst="include/minizip", keep_path=False)
+        self.copy("*minizip_extern.h", dst="include/minizip", keep_path=False)
+        self.copy("*mztools.h", dst="include/minizip", keep_path=False)
+        self.copy("*ioapi.h", dst="include/minizip", keep_path=False)
+        if self.settings.os == "Windows":
+            self.copy("*iowin32.h", dst="include/minizip", keep_path=False)
+        # Libraries
+        self.copy("*.dll", dst="bin", keep_path=False)
+        self.copy("*.lib", dst="lib", keep_path=False)
+        self.copy("*.so", dst="lib", keep_path=False)
+        self.copy("*.a", dst="lib", keep_path=False)
+        # PDB
         self.copy("*zlib.pdb", dst="bin", keep_path=False)
         self.copy("*zlibd.pdb", dst="bin", keep_path=False)
         self.copy("*minizip.pdb", dst="bin", keep_path=False)
