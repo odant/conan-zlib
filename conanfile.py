@@ -93,7 +93,7 @@ class ZlibConan(ConanFile):
         # Libraries
         self.copy("*.dll", dst="bin", keep_path=False)
         self.copy("*.lib", dst="lib", keep_path=False)
-        self.copy("*.so", dst="lib", keep_path=False)
+        self.copy("*.so*", dst="lib", keep_path=False, symlinks=True)
         self.copy("*.a", dst="lib", keep_path=False)
         # PDB
         self.copy("*zlib.pdb", dst="bin", keep_path=False)
