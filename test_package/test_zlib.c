@@ -28,7 +28,7 @@ const char text[] = ""
 
 int main(int argc, char** argv) {
     printf("ZLIB version: %s\n", zlibVersion());
-    printf("Original size: %lu bytes\n", sizeof(text));
+    printf("Original size: %zu bytes\n", sizeof(text));
     
     const uLong compress_buffer_size = compressBound(sizeof(text));
     printf("Required size buffer for compress: %lu\n", compress_buffer_size);
@@ -60,7 +60,7 @@ int main(int argc, char** argv) {
     }
     
     if (uncompressed_size != sizeof(text)) {
-        printf("Error. Invalid uncompress. Original size: %lu bytes, uncompressed size: %lu bytes\n", sizeof(text), uncompressed_size);
+        printf("Error. Invalid uncompress. Original size: %zu bytes, uncompressed size: %lu bytes\n", sizeof(text), uncompressed_size);
         exit(EXIT_FAILURE);
     } else if (memcmp(text, uncompress_buffer, sizeof(text)) != 0) {
         printf("Error. Invalid uncompress. Original and uncompressed data not equal.\n");
