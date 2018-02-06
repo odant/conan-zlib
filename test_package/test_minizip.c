@@ -107,7 +107,7 @@ int main(int argc, char** argv) {
 
     /* Compare size */
     if (unz_fi.uncompressed_size != (ZPOS64_T) sizeof(text)) {
-        printf("Error in Zip, failed compare size. In Zip => %zu, source size => %zu\n", unz_fi.uncompressed_size, (ZPOS64_T) sizeof(text));
+        printf("Error in Zip, failed compare size. In Zip => %llu, source size => %llu\n", unz_fi.uncompressed_size, (ZPOS64_T) sizeof(text));
         exit(EXIT_FAILURE);
     }
 
