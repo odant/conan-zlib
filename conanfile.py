@@ -1,6 +1,11 @@
 from conans import ConanFile, CMake, tools
 import os, glob
 
+def get_safe(options, name):
+    try:
+        return get_attr(options, name, None)
+    except ConanException:
+        return None
 
 class ZlibConan(ConanFile):
     name = "zlib"
@@ -20,17 +25,17 @@ class ZlibConan(ConanFile):
     def configure(self):
         # DLL sign
         if self.settings.os != "Windows" or not self.options.shared:
-            self.options.dll_sign = False
-        # Position indepent
+            del self.options.dll_sign
+        # Position independent code
         if self.settings.os == "Windows":
-            self.options.fPIC = False
-        elif self.options.shared:
+            del self.options.fPIC
+        if self.settings.os != "Windows" and self.options.shared:
             self.options.fPIC = True
         # Pure C library
         del self.settings.compiler.libcxx
     
     def build_requirements(self):
-        if self.options.dll_sign:
+        if get_safe(self.options, "dll_sign"):
             self.build_requires("find_windows_signtool/[~=1.0]@%s/stable" % self.user)
     
     def source(self):
@@ -40,11 +45,12 @@ class ZlibConan(ConanFile):
         # Build
         cmake = CMake(self, parallel=True)
         cmake.definitions["ENABLE_MINIZIP:BOOL"] = self.options.minizip
-        cmake.definitions["CMAKE_POSITION_INDEPENDENT_CODE:BOOL"] = self.options.fPIC
+        if get_safe(self.options, "fPIC"):
+            cmake.definitions["CMAKE_POSITION_INDEPENDENT_CODE:BOOL"] = True
         cmake.configure()
         cmake.build()
         # Sign DLL
-        if self.options.dll_sign:
+        if get_safe(self.options, "dll_sign"):
             with tools.pythonpath(self):
                 from find_windows_signtool import find_signtool
                 signtool = '"' + find_signtool(str(self.settings.arch)) + '"'
