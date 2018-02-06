@@ -37,36 +37,12 @@ class ZlibConan(ConanFile):
         tools.patch(patch_file="minizip.patch")
 
     def build(self):
-        # Build and install to package folder
+        # Build
         cmake = CMake(self, parallel=True)
         cmake.definitions["ENABLE_MINIZIP:BOOL"] = self.options.minizip
         cmake.definitions["CMAKE_POSITION_INDEPENDENT_CODE:BOOL"] = self.options.fPIC
         cmake.configure()
         cmake.build()
-
-        # Remove unused files
-        removable = []
-        if self.options.shared:
-            pattern = os.path.join(self.package_folder, "lib", "*static*")
-            removable += glob.glob(pattern)
-            pattern = os.path.join(self.package_folder, "lib", "*.a")
-            removable += glob.glob(pattern)
-        else:
-            pattern = os.path.join(self.package_folder, "lib", "zlib.lib")
-            removable += glob.glob(pattern)
-            pattern = os.path.join(self.package_folder, "lib", "zlibd.lib")
-            removable += glob.glob(pattern)
-            pattern = os.path.join(self.package_folder, "lib", "minizip.lib")
-            removable += glob.glob(pattern)
-            pattern = os.path.join(self.package_folder, "lib", "minizipd.lib")
-            removable += glob.glob(pattern)
-            pattern = os.path.join(self.package_folder, "lib", "*.so*")
-            removable += glob.glob(pattern)
-            pattern = os.path.join(self.package_folder, "bin", "*.dll")
-            removable += glob.glob(pattern)
-        for fpath in removable:
-            self.output.info("Remove %s" % fpath)
-            os.remove(fpath)
         # Sign DLL
         if self.options.dll_sign:
             with tools.pythonpath(self):
