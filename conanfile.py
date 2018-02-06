@@ -1,9 +1,10 @@
 from conans import ConanFile, CMake, tools
+from conans.errors import ConanException
 import os, glob
 
 def get_safe(options, name):
     try:
-        return get_attr(options, name, None)
+        return getattr(options, name, None)
     except ConanException:
         return None
 
@@ -42,23 +43,12 @@ class ZlibConan(ConanFile):
         tools.patch(patch_file="minizip.patch")
 
     def build(self):
-        # Build
         cmake = CMake(self, parallel=True)
         cmake.definitions["ENABLE_MINIZIP:BOOL"] = self.options.minizip
         if get_safe(self.options, "fPIC"):
             cmake.definitions["CMAKE_POSITION_INDEPENDENT_CODE:BOOL"] = True
         cmake.configure()
         cmake.build()
-        # Sign DLL
-        if get_safe(self.options, "dll_sign"):
-            with tools.pythonpath(self):
-                from find_windows_signtool import find_signtool
-                signtool = '"' + find_signtool(str(self.settings.arch)) + '"'
-                params =  "sign /a /t http://timestamp.verisign.com/scripts/timestamp.dll"
-                pattern = os.path.join(self.package_folder, "bin", "*.dll")
-                for fpath in glob.glob(pattern):
-                    self.output.info("Sign %s" % fpath)
-                    self.run("%s %s %s" %(signtool, params, fpath))
         
     def package(self):
         self.copy("FindZLIB.cmake", dst=".", src=".")
@@ -87,6 +77,16 @@ class ZlibConan(ConanFile):
         self.copy("*zlibstaticd.pdb", dst="bin", keep_path=False)
         self.copy("*minizipstatic.pdb", dst="bin", keep_path=False)
         self.copy("*minizipstaticd.pdb", dst="bin", keep_path=False)
+        # Sign DLL
+        if get_safe(self.options, "dll_sign"):
+            with tools.pythonpath(self):
+                from find_windows_signtool import find_signtool
+                signtool = '"' + find_signtool(str(self.settings.arch)) + '"'
+                params =  "sign /a /t http://timestamp.verisign.com/scripts/timestamp.dll"
+                pattern = os.path.join(self.package_folder, "bin", "*.dll")
+                for fpath in glob.glob(pattern):
+                    self.output.info("Sign %s" % fpath)
+                    self.run("%s %s %s" %(signtool, params, fpath))
 
     def package_info(self):
         libs = None
