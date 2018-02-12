@@ -2,11 +2,13 @@ from conans import ConanFile, CMake, tools
 from conans.errors import ConanException
 import os, glob
 
+
 def get_safe(options, name):
     try:
         return getattr(options, name, None)
     except ConanException:
         return None
+
 
 class ZlibConan(ConanFile):
     name = "zlib"
