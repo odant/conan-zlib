@@ -19,7 +19,7 @@ dll_sign = False if "CONAN_DISABLE_DLL_SIGN" in os.environ else True
 
 def vs_get_toolsets(compiler_version):
     return visual_toolsets if not visual_toolsets is None else visual_default_toolsets.get(compiler_version)
-    
+
 def vs_add_toolset(builds):
     result = []
     for settings, options, env_vars, build_requires, reference in builds:
@@ -40,16 +40,7 @@ def add_dll_sign(builds):
         options["zlib:dll_sign"] = dll_sign
         result.append([settings, options, env_vars, build_requires, reference])
     return result
-    
-def add_minizip(builds):
-    result = []
-    for settings, options, env_vars, build_requires, reference in builds:
-        for minizip in (True, False):
-            options = deepcopy(options)
-            options["zlib:minizip"] = minizip
-            result.append([settings, options, env_vars, build_requires, reference])
-    return result
-    
+
 if __name__ == "__main__":
     builder = ConanMultiPackager(
         username=username,
@@ -63,7 +54,6 @@ if __name__ == "__main__":
     if platform.system() == "Windows":
         builds = vs_add_toolset(builds)
         builds = add_dll_sign(builds)
-    builds = add_minizip(builds)
     # Replace build configurations
     builder.items = []
     for settings, options, env_vars, build_requires, _ in builds:
