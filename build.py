@@ -37,7 +37,6 @@ if __name__ == "__main__":
     builds = builder.items
     if platform.system() == "Windows":
         builds = add_dll_sign(builds)
-    builds = add_minizip(builds)
     # Replace build configurations
     builder.items = []
     for settings, options, env_vars, build_requires, _ in builds:
