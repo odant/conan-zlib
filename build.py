@@ -1,3 +1,7 @@
+# zlib Conan package
+# Dmitriy Vetutnev, ODANT 2018-2020
+
+
 import platform, os
 from conan.packager import ConanMultiPackager
 
@@ -5,7 +9,7 @@ from conan.packager import ConanMultiPackager
 # Common settings
 username = "odant" if "CONAN_USERNAME" not in os.environ else None
 # Windows settings
-visual_versions = ["14", "15"] if "CONAN_VISUAL_VERSIONS" not in os.environ else None
+visual_versions = ["15", "16"] if "CONAN_VISUAL_VERSIONS" not in os.environ else None
 visual_runtimes = ["MD", "MDd", "MT", "MTd"] if "CONAN_VISUAL_RUNTIMES" not in os.environ else None
 dll_sign = False if "CONAN_DISABLE_DLL_SIGN" in os.environ else True
 
@@ -14,13 +18,6 @@ def add_dll_sign(builds):
     result = []
     for settings, options, env_vars, build_requires, reference in builds:
         options["zlib:dll_sign"] = dll_sign
-        result.append([settings, options, env_vars, build_requires, reference])
-    return result
-
-def add_minizip(builds):
-    result = []
-    for settings, options, env_vars, build_requires, reference in builds:
-        options["zlib:minizip"] = True
         result.append([settings, options, env_vars, build_requires, reference])
     return result
 
