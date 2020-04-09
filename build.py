@@ -21,6 +21,15 @@ def add_dll_sign(builds):
         result.append([settings, options, env_vars, build_requires, reference])
     return result
 
+def filter_shared_MT(builds):
+    result = []
+    for settings, options, env_vars, build_requires, reference in builds:
+        if settings["compiler.runtime"] == "MT" or settings["compiler.runtime"] == "MTd":
+            if options["zlib:shared"] == "True":
+                continue
+        result.append([settings, options, env_vars, build_requires, reference])
+    return result
+
 
 if __name__ == "__main__":
     builder = ConanMultiPackager(
@@ -34,6 +43,7 @@ if __name__ == "__main__":
     builds = builder.items
     if platform.system() == "Windows":
         builds = add_dll_sign(builds)
+        builds = filter_shared_MT(builds)
     # Replace build configurations
     builder.items = []
     for settings, options, env_vars, build_requires, _ in builds:
