@@ -12,7 +12,7 @@ def get_safe(options, name):
 
 class ZlibConan(ConanFile):
     name = "zlib"
-    version = "1.2.12+0"
+    version = "1.2.12+1"
     license = "http://www.zlib.net/zlib_license.html"
     description = "A Massively Spiffy Yet Delicately Unobtrusive Compression Library " \
                   "(Also Free, Not to Mention Unencumbered by Patents)"
