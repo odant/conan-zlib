@@ -41,8 +41,8 @@ class ZlibConan(ConanFile):
         if get_safe(self.options, "dll_sign"):
             self.build_requires("windows_signtool/[~=1.0]@%s/stable" % self.user)
     
-    def source(self):
-        tools.patch(patch_file="minizip.patch")
+    #def source(self):
+    #    tools.patch(patch_file="minizip.patch")
 
     def build(self):
         cmake = CMake(self, parallel=True)
