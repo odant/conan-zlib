@@ -1,31 +1,33 @@
-from conans import ConanFile, CMake
+from conan import ConanFile
+from conan.tools.build import cross_building, can_run
+from conan.tools.cmake import CMake, CMakeToolchain, cmake_layout
+from conan.tools.scm import Version
+from conan.tools.env import VirtualBuildEnv
+from conan.tools.files import chdir
 import os
+
 
 class PackageTestConan(ConanFile):
     settings = "os", "compiler", "build_type", "arch"
-    generators = "cmake"
+    generators = "CMakeDeps", "VirtualRunEnv", "VirtualBuildEnv"
 
-    def isClangClToolset(self):
-        return True if self.settings.os == "Windows" and self.settings.compiler == "Visual Studio" and str(self.settings.compiler.toolset).lower() == "clangcl" else False
+    def layout(self):
+        cmake_layout(self)
 
-    def build_requirements(self):
-        if not self.isClangClToolset():
-            self.build_requires("ninja/[>=1.10.2]")
+    def requirements(self):
+        self.requires(self.tested_reference_str)
+
+    def generate(self):
+        tc = CMakeToolchain(self, generator="Ninja")
+        tc.variables["ENABLE_MINIZIP"] = self.dependencies["zlib"].options.get_safe("minizip")
+        tc.generate() 
 
     def build(self):
-        cmakeGenerator = "Ninja" if not self.isClangClToolset() else None
-        cmake = CMake(self, generator=cmakeGenerator)
-        cmake.definitions["ENABLE_MINIZIP:BOOL"] = self.options["zlib"].minizip
+        cmake = CMake(self)
         cmake.configure()
         cmake.build()
 
-    def imports(self):
-        self.copy("*.pdb", dst="bin", src="bin")
-        self.copy("*.dll", dst="bin", src="bin")
-        self.copy("*.so.*", dst="bin", src="lib")
-
     def test(self):
-        if self.settings.os == "Windows" and self.settings.compiler == "Visual Studio":
-            self.run("ctest --output-on-failure --build-config %s" % self.settings.build_type)
-        else:
-            self.run("ctest --output-on-failure")
+        if can_run(self):
+            with chdir(self, self.folders.build_folder):
+                self.run(f"ctest --output-on-failure -C {self.settings.build_type}", env="conanrun")
